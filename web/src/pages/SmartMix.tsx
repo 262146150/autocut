@@ -1,13 +1,12 @@
 // SmartMix.tsx — AI 智能混剪三栏页（按截图复刻 + 接后端混剪管线）
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Link } from "react-router-dom";
 import type { ModuleDef } from "../data/modules";
 import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MixParams, type PercentRect, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
-import { Group, Field, Switch, Slider } from "../components/controls";
+import { Group, Field, Slider } from "../components/controls";
 import { DEFAULT_VIDEO_PROCESSING, VideoProcessingSettings } from "../components/VideoProcessingSettings";
 import voiceRaw from "../../voice.json?raw";
 
-const PRESET_COLORS = ["🎲", "#fff", "#f2c14e", "#ef5777", "#3b82f6", "#22c55e", "#111", "#f97316", "#10b981", "#ec4899", "#60a5fa", "#84cc16"];
+const PRESET_COLORS = ["random", "#fff", "#f2c14e", "#ef5777", "#3b82f6", "#22c55e", "#111", "#f97316", "#10b981", "#ec4899", "#60a5fa", "#84cc16"];
 const SUBTITLE_FONTS = [
   { label: "苹方简体", family: "PingFang SC", file: "/System/Library/Fonts/PingFang.ttc" },
   { label: "冬青黑体", family: "Hiragino Sans GB", file: "/System/Library/Fonts/Hiragino Sans GB.ttc" },
@@ -240,7 +239,7 @@ function BaseSettings({
             value={bgmPath}
             onChange={(e) => setBgmPath(e.target.value)}
           />
-          <button className="icon-btn" type="button" onClick={chooseBgm}>📄</button>
+          <button className="icon-btn text-btn" type="button" onClick={chooseBgm}>选择</button>
           <button className="icon-btn" type="button" disabled={!bgmCanPreview} onClick={onToggleBgmPreview}>
             {bgmPreviewPlaying ? "❚❚" : "▶"}
           </button>
@@ -273,7 +272,6 @@ function BaseSettings({
           </Field>
           <Field label="音量调整"><Slider value={200} max={300} /></Field>
           <Field label="语速调整"><Slider value={100} max={200} display="1.0x" /></Field>
-          <Field label="随机音色" valEnd><Switch /></Field>
         </Group>
       ) : null}
       <Group title="文本/字幕样式" badge={activeTextLabel}>
@@ -307,7 +305,7 @@ function BaseSettings({
               onClick={() => setSubtitleColor(i === 0 ? randomPresetColor() : c)}
               style={i === 0 ? {} : { color: c === "#fff" || c === "#111" ? "#888" : c }}
             >
-              {i === 0 ? "🎲" : "A"}
+              {i === 0 ? "R" : "A"}
             </button>
           ))}
         </div>
@@ -500,7 +498,7 @@ function FolderMixSettings({
         </div>
         <div className="fixed-picker">
           <span title={fixedFirstPath}>{fixedFirstPath ? basename(fixedFirstPath) : "未选择"}</span>
-          <button className="icon-btn" type="button" onClick={chooseFixedFirst}>📄</button>
+          <button className="icon-btn text-btn" type="button" onClick={chooseFixedFirst}>选择</button>
           <button className="icon-btn" type="button" onClick={() => { setFixedFirstPath(""); setFixedFirstEnabled(false); }}>×</button>
         </div>
         <div className={`folder-setting-row ${fixedFirstEnabled ? "" : "disabled"}`}>
@@ -634,11 +632,10 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewBgmRef = useRef<HTMLAudioElement | null>(null);
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [tab, setTab] = useState<"base" | "pic">("base");
+  const [tab, setTab] = useState<"generate" | "base" | "pic">("generate");
   const [folder, setFolder] = useState<string | null>(null);
   const [folderInfo, setFolderInfo] = useState<MaterialFolderInfo | null>(null);
   const [selectedClip, setSelectedClip] = useState<MaterialClip | null>(null);
-  const [folderSettingsOpen, setFolderSettingsOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -752,7 +749,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setFolder(nextFolder);
     setFolderInfo(null);
     setSelectedClip(null);
-    setFolderSettingsOpen(false);
     setOutputs([]);
     setProgress(0);
     setStatus("正在读取素材文件夹…");
@@ -771,7 +767,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setFolder(null);
     setFolderInfo(null);
     setSelectedClip(null);
-    setFolderSettingsOpen(false);
     setOutputs([]);
     setProgress(0);
     setStatus("");
@@ -1274,18 +1269,22 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
 
   return (
     <div className="modwrap">
-      <div className="modbar"><Link to="/">‹ 返回工作站</Link><b>{mod.name}</b></div>
+      <div className="modbar">
+        <div className="mod-title">
+          <b>{mod.name}</b>
+          <span>{mixMode === "copy" ? "文案模式" : mixMode === "audio" ? "音频模式" : "自定义模式"}</span>
+        </div>
+      </div>
       <div className="mod">
         {/* 左：素材库 */}
         <div className="col">
           <div className="box" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div className="box-h">
-              <button className="import-btn" onClick={onImport}>📁 导入文件夹</button>
-              <div className="r"><button className="icon-btn" onClick={onClearFolder}>🗑</button></div>
+              <button className="import-btn" onClick={onImport}>导入文件夹</button>
+              <div className="r"><button className="icon-btn text-btn" onClick={onClearFolder}>清空</button></div>
             </div>
             {!folder ? (
               <div className="empty">
-                <div className="big">🗂</div>
                 <div className="t">暂无文件夹</div>
                 <div className="s">点击导入按钮或拖拽添加素材文件夹</div>
               </div>
@@ -1293,71 +1292,29 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               <div className="folder-tree">
                 <div className="folder-row">
                   <button className="folder-open" type="button">⌄</button>
-                  <span className="folder-icon">📁</span>
                   <strong title={folderName}>{folderName}</strong>
                   <span className="folder-count">{folderInfo ? folderInfo.count : "…"}</span>
-                  <button
-                    className={`gear-btn ${folderSettingsOpen ? "active" : ""}`}
-                    type="button"
-                    title="文件夹混剪设置"
-                    onClick={() => setFolderSettingsOpen((open) => !open)}
-                  >
-                    ⚙
-                  </button>
                 </div>
-                {folderSettingsOpen ? (
-                  <FolderMixSettings
-                    mixMode={mixMode}
-                    setMixMode={setMixMode}
-                    outCount={outCount}
-                    setOutCount={setOutCount}
-                    materialCount={materialCount}
-                    setMaterialCount={setMaterialCount}
-                    clipStartSec={clipStartSec}
-                    setClipStartSec={setClipStartSec}
-                    clipEndSec={clipEndSec}
-                    setClipEndSec={setClipEndSec}
-                    shuffle={shuffle}
-                    setShuffle={setShuffle}
-                    allowReuse={allowReuse}
-                    setAllowReuse={setAllowReuse}
-                    subtitleMode={subtitleMode}
-                    setSubtitleMode={setSubtitleMode}
-                    copySubtitleEnabled={copySubtitleEnabled}
-                    setCopySubtitleEnabled={setCopySubtitleEnabled}
-                    audioSubtitleEnabled={audioSubtitleEnabled}
-                    setAudioSubtitleEnabled={setAudioSubtitleEnabled}
-                    fixedFirstEnabled={fixedFirstEnabled}
-                    setFixedFirstEnabled={setFixedFirstEnabled}
-                    fixedFirstPath={fixedFirstPath}
-                    setFixedFirstPath={setFixedFirstPath}
-                    fixedFirstStartSec={fixedFirstStartSec}
-                    setFixedFirstStartSec={setFixedFirstStartSec}
-                    fixedFirstEndSec={fixedFirstEndSec}
-                    setFixedFirstEndSec={setFixedFirstEndSec}
-                  />
-                ) : (
-                  <div className="clip-list">
-                    {!folderInfo ? (
-                      <div className="clip-row muted">正在读取素材…</div>
-                    ) : folderInfo.clips.length ? (
-                      folderInfo.clips.slice(0, 12).map((clip) => (
-                        <button
-                          className={`clip-row ${selectedClip?.path === clip.path ? "active" : ""}`}
-                          key={clip.path || clip.name}
-                          title={clip.name}
-                          type="button"
-                          onClick={() => setSelectedClip(clip)}
-                        >
-                          <span>▻</span>
-                          <b>{clip.name}</b>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="clip-row muted">该目录没有视频素材</div>
-                    )}
-                  </div>
-                )}
+                <div className="clip-list">
+                  {!folderInfo ? (
+                    <div className="clip-row muted">正在读取素材…</div>
+                  ) : folderInfo.clips.length ? (
+                    folderInfo.clips.slice(0, 12).map((clip) => (
+                      <button
+                        className={`clip-row ${selectedClip?.path === clip.path ? "active" : ""}`}
+                        key={clip.path || clip.name}
+                        title={clip.name}
+                        type="button"
+                        onClick={() => setSelectedClip(clip)}
+                      >
+                        <span>▻</span>
+                        <b>{clip.name}</b>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="clip-row muted">该目录没有视频素材</div>
+                  )}
+                </div>
                 <div className="folder-path">{folder === "__TEST__" ? "（使用内置测试素材）" : folder}</div>
               </div>
             )}
@@ -1612,7 +1569,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                 </>
               ) : (
                 <div className="preview-empty">
-                  <div className="ph">🖼</div>
                   <div>{selectedClip ? "该素材暂不支持浏览器预览" : "选择素材后在此预览"}</div>
                 </div>
               )}
@@ -1621,11 +1577,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
           <div className="box copybox">
             <div className="box-h">
               {outputs.length ? "生成结果" : mixMode === "copy" ? "文案列表" : mixMode === "audio" ? "音频列表" : "视频文案"}
-              <div className="r">
-                {folder && <>{mixMode === "copy" ? "每条裂变" : mixMode === "audio" ? "每音频裂变" : "生成数量"} <span className="num" style={{ marginLeft: 6 }}>
-                  <input type="number" value={outCount} min={1} max={30} onChange={(e) => setOutCount(+e.target.value)} />
-                </span></>}
-              </div>
             </div>
             {outputs.length ? (
               <div style={{ padding: 12 }}>
@@ -1751,7 +1702,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                     <textarea
                       value={activeAudioItem.text}
                       onChange={(e) => updateAudioItem(activeAudioItem.id, { text: e.target.value })}
-                      placeholder={audioSubtitleEnabled ? "可选：输入要烧录到视频中的字幕文案，留空则不生成字幕" : "音频字幕已关闭，可在左侧齿轮中启用"}
+                      placeholder={audioSubtitleEnabled ? "可选：输入要烧录到视频中的字幕文案，留空则不生成字幕" : "音频字幕已关闭，可在右侧生成设置中启用"}
                     />
                   </div>
                 ) : (
@@ -1764,7 +1715,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               </div>
             ) : (
               <div className="body">
-                <div className="ph" style={{ fontSize: 30, opacity: 0.4 }}>📂</div>
                 <div>请在左侧选择一个文件夹</div>
                 <div className="s muted">选中文件夹后即可输入文案或添加音频</div>
               </div>
@@ -1775,10 +1725,42 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         {/* 右：设置 */}
         <div className="col settings">
           <div className="tabs">
+            <button className={tab === "generate" ? "active" : ""} onClick={() => setTab("generate")}>生成设置</button>
             <button className={tab === "base" ? "active" : ""} onClick={() => setTab("base")}>基础设置</button>
             <button className={tab === "pic" ? "active" : ""} onClick={() => setTab("pic")}>画面处理</button>
           </div>
-          <div className="set-scroll">{tab === "base" ? (
+          <div className="set-scroll">{tab === "generate" ? (
+            <FolderMixSettings
+              mixMode={mixMode}
+              setMixMode={setMixMode}
+              outCount={outCount}
+              setOutCount={setOutCount}
+              materialCount={materialCount}
+              setMaterialCount={setMaterialCount}
+              clipStartSec={clipStartSec}
+              setClipStartSec={setClipStartSec}
+              clipEndSec={clipEndSec}
+              setClipEndSec={setClipEndSec}
+              shuffle={shuffle}
+              setShuffle={setShuffle}
+              allowReuse={allowReuse}
+              setAllowReuse={setAllowReuse}
+              subtitleMode={subtitleMode}
+              setSubtitleMode={setSubtitleMode}
+              copySubtitleEnabled={copySubtitleEnabled}
+              setCopySubtitleEnabled={setCopySubtitleEnabled}
+              audioSubtitleEnabled={audioSubtitleEnabled}
+              setAudioSubtitleEnabled={setAudioSubtitleEnabled}
+              fixedFirstEnabled={fixedFirstEnabled}
+              setFixedFirstEnabled={setFixedFirstEnabled}
+              fixedFirstPath={fixedFirstPath}
+              setFixedFirstPath={setFixedFirstPath}
+              fixedFirstStartSec={fixedFirstStartSec}
+              setFixedFirstStartSec={setFixedFirstStartSec}
+              fixedFirstEndSec={fixedFirstEndSec}
+              setFixedFirstEndSec={setFixedFirstEndSec}
+            />
+          ) : tab === "base" ? (
             <BaseSettings
               videoVolume={videoVolume}
               setVideoVolume={setVideoVolume}

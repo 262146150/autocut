@@ -231,7 +231,7 @@ export function VideoProcessingSettings({
               onChange(setNested(value, "watermarkOverlay", { path, mediaType: inferWatermarkMediaType(path), enabled: Boolean(path.trim()) }));
             }}
           />
-          <button className="icon-btn" type="button" onClick={chooseWatermark}>📄</button>
+          <button className="icon-btn text-btn" type="button" onClick={chooseWatermark}>选择</button>
           <button className="icon-btn" type="button" onClick={() => onChange(setNested(value, "watermarkOverlay", { path: "", enabled: false }))}>×</button>
         </Field>
         <Field label="透明度"><ControlledSlider value={watermarkOverlay.opacity} onChange={(opacity) => onChange(setNested(value, "watermarkOverlay", { opacity }))} /></Field>

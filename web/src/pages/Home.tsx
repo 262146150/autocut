@@ -1,4 +1,4 @@
-// Home.tsx — 首页：分类 Tab + 模块卡片（按截图复刻）
+// Home.tsx — 工作台总览：分类 Tab + 模块卡片
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CATS, type ModuleDef } from "../data/modules";
@@ -26,8 +26,9 @@ export default function Home() {
   return (
     <div className="home">
       <div className="home-head">
-        <h1>智能视频批量处理工作站</h1>
-        <div className="diamond" />
+        <div>
+          <h1>智能视频批量处理工作站</h1>
+        </div>
       </div>
       <div className="cats">
         {Object.keys(CATS).map((c) => (
