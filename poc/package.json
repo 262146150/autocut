@@ -1,0 +1,11 @@
+{
+  "name": "ecutauto-poc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ECutAuto 混剪/去重核心管线的最小可跑复刻（Node + 系统 ffmpeg）",
+  "scripts": {
+    "mix": "node mix.mjs",
+    "mix:landscape": "node mix.mjs --canvas 1920x1080 --out 3"
+  }
+}

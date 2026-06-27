@@ -1,0 +1,863 @@
+0123456789ABCDEFEventLoopHandlerwindowBackgroundprevent-overflowalways-on-bottomcontentProtectedacceptFirstMouseuse-https-schemebackground-colorallowLinkPreviewscroll-bar-stylelive_clip_exportnarration_exportcom.ecutauto.appcore:app:defaultallow-identifierdeny-bundle-typeallow-from-bytesallow-is-enabledallow-is-checkeddeny-set-checkeddeny-set-enableddeny-is-absolutedeny-set-tooltipdeny-set-visibleget_all_webviewsset_webview_sizeset_webview_zoomwebview_positionallow-inner-sizeallow-outer-sizeallow-is-focusedallow-is-visibleis_always_on_topset_overlay_iconset_progress_barallow-set-shadowset_skip_taskbarallow-unmaximizeallow-unminimizedeny-is-closabledeny-set-effectsallow-write-file$APPLOCALDATA/**scope-data-indexscope-font-indexscope-home-indexscope-temp-indexallow-audio-metaallow-audio-readallow-cache-metaallow-cache-readallow-data-writeallow-font-writeallow-home-writeallow-temp-writeallow-video-metaallow-video-readplugin:fs|createplugin:fs|existsplugin:fs|removeplugin:fs|renameplugin:image|newplugin:menu|textplugin:path|join
+atempo=
+volume=
+aac: object typeaac: CELP configaac: HVXC configinvalid track idinvalid positionContentEncodingsChromaSitingHorzChromaSitingVertChapterStringUidChapterTimeStartChapLanguageIetfencoder settingsclosedHandCursorresizeDownCursorresizeLeftCursorcannot_be_a_baseHiraganaKatakanaMediaFastForwardAudioBalanceLeftAudioBassBoostUpMicrophoneToggleLaunchWebBrowserBrowserFavoritesLastNumberRedialGuidePreviousDayMediaSkipForwardMediaStepForwardNavigatePreviousrequested_resumeNumpadClearEntryNumpadParenRightModifiersChangedTouchpadPressureDecorationsClickPhysicalPosition
+window_targetfuture still here when dropping__app-acl__map with a single keystring or mappath contains invalid UTF-8 charactersfewer elements in arrayfewer elements in mapan array of length 16assertion failed: prevABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789Uniform::new_inclusive: range overflowUniformSampler::sample_single: range overflowfollowsWindowActiveStateactiveappearanceBasedmediumLightultraDarkselectionpopoversidebarheaderViewsheethudWindowfullScreenUItooltipcontentBackgroundunderWindowBackgroundunderPageBackgroundmicaLighttabbedtabbedDarktabbedLightacrylicdata did not match any variant of untagged enum PreventOverflowConfigsuspenddata did not match any variant of untagged enum InnerColorcreateuserAgentdrag-drop-enableddragDropEnabledcentermin-widthmin-heightminHeightmax-widthmax-heightmaxHeightpreventOverflowresizablemaximizableminimizablefullscreenfocustransparentmaximizedvisibledecorationsalwaysOnBottomalways-on-topalwaysOnTopvisible-on-all-workspacesvisibleOnAllWorkspacescontent-protectedskip-taskbarskipTaskbarwindowClassnamethemetitle-bar-styletitleBarStyletraffic-light-positiontrafficLightPositionhidden-titlehiddenTitleaccept-first-mousetabbing-identifiertabbingIdentifieradditional-browser-argsadditionalBrowserArgsshadowwindow-effectswindowEffectsincognitoparentproxy-urlzoom-hotkeys-enabledzoomHotkeysEnabledbrowser-extensions-enabledbrowserExtensionsEnableduseHttpsSchemebackgroundColorbackground-throttlingbackgroundThrottlingjavascript-disabledjavascriptDisabledallow-link-previewdisable-input-accessory-viewdisableInputAccessoryViewdisable_input_accessory_viewdata-directorydataDirectorydata-store-identifierdataStoreIdentifierscrollBarStylefluentOverlayeffectsradiuscolorinconsistent in drop
+/attachments-Xfade/vdwind.gif[
+/attachments-Xfade/wipebr.gif
+/attachments-Xfade/smoothleft.gif
+/attachments-Xfade/wipeup.gif
+/attachments-Xfade/diagtr.gif
+/attachments-Xfade/revealleft.gif
+/attachments-Xfade/hblur.gif
+/attachments-Xfade/vdslice.gif
+GeqqQ
+/attachments-Xfade/diagbr.gif
+/attachments-Xfade/dissolve.gif
+mHSweq=
+/attachments-Xfade/revealdown.gif
+//attachments-Xfade/radial.gif
+/attachments-Xfade/vertclose.gif
+/attachments-Xfade/circleclose.gif
+/attachments-Xfade/coverdown.gif
+/attachments-Xfade/diagbl.gif
+/attachments-Xfade/vuslice.gif
+'paaC
+a/attachments-Xfade/hrwind.gif
+/attachments-Xfade/zoomin.gif
+/attachments-Xfade/horzclose.gif
+eq=-^
+/attachments-Xfade/revealup.gif
+/attachments-Xfade/wiperight.gif
+/attachments-Xfade/smoothdown.gif
+/attachments-Xfade/vertopen.gif
+/attachments-Xfade/circleopen.gif
+/attachments-Xfade/wipeleft.gif
+/attachments-Xfade/hlwind.gif
+/attachments-Xfade/horzopen.gif
+/attachments-Xfade/vuwind.gif[@_
+/attachments-Xfade/hrslice.gif
+/attachments-Xfade/fadeblack.gif
+/attachments-Xfade/coverright.gif
+seq=%
+/attachments-Xfade/fadewhite.gif
+e/attachments-Xfade/slideleft.gif
+/attachments-Xfade/slideup.gif
+/attachments-Xfade/distance.gif
+/attachments-Xfade/wipetr.gif
+/attachments-Xfade/hlslice.gif
+2aach
+GEQ"Y
+/attachments-Xfade/squeezev.gif
+8/attachments-Xfade/fadegrays.gif
+/attachments-Xfade/slidedown.gif
+/attachments-Xfade/wipedown.gif
+J/attachments-Xfade/circlecrop.gif
+/attachments-Xfade/smoothup.gif
++/attachments-Xfade/squeezeh.gif
+/attachments-Xfade/smoothright.gif
+(/attachments-Xfade/coverleft.gif
+/attachments-Xfade/wipetl.gif
+/assets/useVideoOverlay-BDY8D8Ra.js
+n#IAACs
+/attachments-Xfade/fade.gif
+/attachments-Xfade/pixelize.gif
+/attachments-Xfade/rectcrop.gif
+/attachments-Xfade/diagtl.gif
+;/attachments-Xfade/coverup.gif
+|:gEQ
+/attachments-Xfade/slideright.gif
+/attachments-Xfade/revealright.gif
+/attachments-Xfade/wipebl.gif
+youA Tauri Appcore:path:defaultcore:event:defaultcore:window:defaultcore:webview:defaultcore:image:defaultcore:resources:defaultcore:menu:defaultcore:tray:defaultallow-versionallow-nameallow-tauri-versionallow-bundle-typeallow-register-listenerallow-remove-listenerallow-app-hideallow-app-showbundle_typeallow-default-window-icondefault_window_iconallow-fetch-data-store-identifiersfetch_data_store_identifiersidentifierregister_listenerallow-remove-data-storeremove_data_storeremove_listenerallow-set-app-themeset_app_themeallow-set-dock-visibilityset_dock_visibilitytauri_versiondeny-app-hidedeny-app-showdeny-default-window-icondeny-fetch-data-store-identifiersdeny-identifierdeny-namedeny-register-listenerdeny-remove-data-storedeny-remove-listenerdeny-set-app-themedeny-set-dock-visibilitydeny-tauri-versiondeny-versioncore:eventallow-listenallow-unlistenallow-emitallow-emit-toemit_tolistendeny-emitdeny-emit-todeny-listendeny-unlistencore:imageallow-newallow-from-pathallow-rgbaallow-sizefrom_bytesfrom_pathnewdeny-from-bytesdeny-from-pathdeny-rgbadeny-sizecore:menuallow-appendallow-prependallow-insertallow-removeallow-remove-atallow-itemsallow-getallow-popupallow-create-defaultallow-set-as-app-menuallow-set-as-window-menuallow-textallow-set-textallow-set-enabledallow-set-acceleratorallow-set-as-windows-menu-for-nsappallow-set-as-help-menu-for-nsappallow-set-checkedallow-set-iconappendcreate_defaultgetinsertis_checkedis_enableditemspopupremoveremove_atset_acceleratorset_as_app_menuset_as_help_menu_for_nsappset_as_window_menuset_as_windows_menu_for_nsappset_checkedset_enableddeny-appenddeny-create-defaultdeny-insertdeny-is-checkeddeny-is-enableddeny-itemsdeny-popupdeny-prependdeny-removedeny-remove-atdeny-set-acceleratordeny-set-as-app-menudeny-set-as-help-menu-for-nsappdeny-set-as-window-menudeny-set-as-windows-menu-for-nsappdeny-set-icondeny-set-textdeny-textcore:pathallow-resolve-directoryallow-resolveallow-normalizeallow-joinallow-dirnameallow-extnameallow-basenameallow-is-absolutedirnameextnameis_absolutenormalizeresolveresolve_directorydeny-basenamedeny-dirnamedeny-extnamedeny-joindeny-normalizedeny-resolvedeny-resolve-directorycore:resourcesallow-closedeny-closecore:trayallow-get-by-idallow-remove-by-idallow-set-menuallow-set-tooltipallow-set-titleallow-set-visibleallow-set-temp-dir-pathallow-set-icon-as-templateallow-set-show-menu-on-left-clickget_by_idremove_by_idset_icon_as_templateset_show_menu_on_left_clickset_temp_dir_pathset_titleset_tooltipset_visibledeny-get-by-iddeny-remove-by-iddeny-set-icon-as-templatedeny-set-menudeny-set-show-menu-on-left-clickdeny-set-temp-dir-pathdeny-set-titlecore:webviewallow-get-all-webviewsallow-webview-positionallow-webview-sizeallow-internal-toggle-devtoolsallow-clear-all-browsing-dataclear_all_browsing_dataallow-create-webviewcreate_webviewallow-create-webview-windowcreate_webview_windowinternal_toggle_devtoolsallow-printallow-reparentallow-set-webview-auto-resizeset_webview_auto_resizeallow-set-webview-background-colorset_webview_background_colorallow-set-webview-focusset_webview_focusallow-set-webview-positionset_webview_positionallow-set-webview-sizeallow-set-webview-zoomallow-webview-closewebview_closeallow-webview-hidewebview_hideallow-webview-showwebview_showwebview_sizedeny-clear-all-browsing-datadeny-create-webviewdeny-create-webview-windowdeny-get-all-webviewsdeny-internal-toggle-devtoolsdeny-printdeny-reparentdeny-set-webview-auto-resizedeny-set-webview-background-colordeny-set-webview-focusdeny-set-webview-positiondeny-set-webview-sizedeny-set-webview-zoomdeny-webview-closedeny-webview-hidedeny-webview-positiondeny-webview-showdeny-webview-sizecore:windowallow-get-all-windowsallow-scale-factorallow-inner-positionallow-outer-positionallow-is-fullscreenallow-is-minimizedallow-is-maximizedallow-is-decoratedallow-is-resizableallow-is-maximizableallow-is-minimizableallow-is-closableallow-titleallow-current-monitorallow-primary-monitorallow-monitor-from-pointallow-available-monitorsallow-cursor-positionallow-themeallow-is-always-on-topallow-internal-toggle-maximizeavailable_monitorsallow-centerallow-createcurrent_monitorcursor_positionallow-destroydestroyget_all_windowsallow-hideinner_positioninner_sizeinternal_toggle_maximizeis_closableis_decoratedis_focusedis_fullscreenis_maximizableis_maximizedis_minimizableis_minimizedis_resizableis_visibleallow-maximizeallow-minimizemonitor_from_pointouter_positionouter_sizeprimary_monitorallow-request-user-attentionrequest_user_attentionallow-set-always-on-bottomset_always_on_bottomallow-set-always-on-topset_always_on_topallow-set-background-colorset_background_colorallow-set-badge-countset_badge_countallow-set-badge-labelset_badge_labelallow-set-closableset_closableallow-set-content-protectedset_content_protectedallow-set-cursor-grabset_cursor_graballow-set-cursor-iconset_cursor_iconallow-set-cursor-positionset_cursor_positionallow-set-cursor-visibleset_cursor_visibleallow-set-decorationsset_decorationsallow-set-effectsset_effectsallow-set-focusset_focusallow-set-focusableset_focusableallow-set-fullscreenset_fullscreenallow-set-ignore-cursor-eventsset_ignore_cursor_eventsallow-set-max-sizeset_max_sizeallow-set-maximizableset_maximizableallow-set-min-sizeset_min_sizeallow-set-minimizableset_minimizableallow-set-overlay-iconallow-set-positionset_positionallow-set-progress-barallow-set-resizableset_resizableset_shadowallow-set-simple-fullscreenset_simple_fullscreenallow-set-sizeallow-set-size-constraintsset_size_constraintsallow-set-skip-taskbarallow-set-themeset_themeallow-set-title-bar-styleset_title_bar_styleallow-set-visible-on-all-workspacesset_visible_on_all_workspacesallow-showallow-start-draggingstart_draggingallow-start-resize-draggingstart_resize_draggingallow-toggle-maximizetoggle_maximizeunmaximizeunminimizedeny-available-monitorsdeny-centerdeny-createdeny-current-monitordeny-cursor-positiondeny-destroydeny-get-all-windowsdeny-hidedeny-inner-positiondeny-inner-sizedeny-internal-toggle-maximizedeny-is-always-on-topdeny-is-decorateddeny-is-focuseddeny-is-fullscreendeny-is-maximizabledeny-is-maximizeddeny-is-minimizabledeny-is-minimizeddeny-is-resizabledeny-is-visibledeny-maximizedeny-minimizedeny-monitor-from-pointdeny-outer-positiondeny-outer-sizedeny-primary-monitordeny-request-user-attentiondeny-scale-factordeny-set-always-on-bottomdeny-set-always-on-topdeny-set-background-colordeny-set-badge-countdeny-set-badge-labeldeny-set-closabledeny-set-content-protecteddeny-set-cursor-grabdeny-set-cursor-icondeny-set-cursor-positiondeny-set-cursor-visibledeny-set-decorationsdeny-set-focusdeny-set-focusabledeny-set-fullscreendeny-set-ignore-cursor-eventsdeny-set-max-sizedeny-set-maximizabledeny-set-min-sizedeny-set-minimizabledeny-set-overlay-icondeny-set-positiondeny-set-progress-bardeny-set-resizabledeny-set-shadowdeny-set-simple-fullscreendeny-set-sizedeny-set-size-constraintsdeny-set-skip-taskbardeny-set-themedeny-set-title-bar-styledeny-set-visible-on-all-workspacesdeny-showdeny-start-draggingdeny-start-resize-draggingdeny-themedeny-titledeny-toggle-maximizedeny-unmaximizedeny-unminimizedialogallow-messageallow-saveallow-openallow-askallow-confirmdeny-confirmdeny-messagedeny-opendeny-savefscreate-app-specific-dirsread-app-specific-dirs-recursivedeny-defaultallow-copy-filecopy_fileallow-existsexistsallow-fstatfstatallow-ftruncateftruncateallow-lstatlstatallow-mkdirmkdirallow-readallow-read-dirallow-read-fileread_fileallow-read-text-fileread_text_fileallow-read-text-file-linesread_text_file_linesread_text_file_lines_nextallow-read-text-file-lines-nextallow-renamerenameallow-seekallow-start-accessing-security-scoped-resourcestart_accessing_security_scoped_resourceallow-statallow-stop-accessing-security-scoped-resourcestop_accessing_security_scoped_resourceallow-truncateallow-unwatch
+atempo=0.5
+libx264-flavfi-icolor=c=black:s=256x256:d=0.2h264_nvencspeed-presetp1
+concat_list.txtmerged.tsecutauto_lib::ffmpeg::concat
+concat
+-taformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo
+4,asetpts=PTS-STARTPTS,aresample=async=1:first_pts=0,
+\transpose=1,transpose=2,hflip,vflip,setpts=PTS-STARTPTS
+,setpts=PTS-STARTPTS
+ ,split[orig][copy]; [copy]scale=
+O:force_original_aspect_ratio=increase:flags=fast_bilinear,gblur=sigma=40,scale=
+(:flags=fast_bilinear[blur]; [orig]scale=
+:flags=lanczos:force_divisible_by=2[scaled]; [blur][scaled]overlay=floor((main_w-overlay_w)/2/2)*2:floor((main_h-overlay_h)/2/2)*2,setsar=1,format=yuv420p,setparams=colorspace=bt709:color_trc=bt709:color_primaries=bt709
+,fps=
+,crop=iw*
+32k-acscale='min(854,iw)':-2,fps=fps=15-movflags+faststart
+([0:v]split[original][copy]; [copy]scale=
+O:force_original_aspect_ratio=increase:flags=fast_bilinear,gblur=sigma=40,scale=
+/:flags=fast_bilinear[blurred]; [original]scale=
+:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[scaled]; [blurred][scaled]overlay=floor((main_w-overlay_w)/2/2)*2:floor((main_h-overlay_h)/2/2)*2,setsar=1[outv]
+zoompan=z='
+':d=1:fps=
+,setpts=PTS-STARTPTS,scale=
+category_mix_progressWatermark%Y%m%d-stream_loop
+[vdelogo_fb]
+delogo=x='floor(iw*
+split[
+work]crop=iw*
+crop]scale='trunc(iw/
+)',scale='iw*
+fx]overlay='main_w*
+split[
+work]crop=iw*
+crop]gblur=sigma=
+fx]overlay='main_w*
+[vdelogo][vzoompan]
+[wm_raw]format=rgba[wm][wm_alpha][vwm_img]:shortest=1:eof_action=repeat
+setpts=PTS/
+,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo
+[0:a]volume=
+[0:a]volume=
+:a]volume=
+:a]volume=
+K,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[aulmix]
+-overlay_w/2
+-overlay_h/2
+transpose=2transpose=1
+coverframeratewatermarkpippixel_blendsticker_overlayaudio_settingssetparams=colorspace=bt709:color_trc=bt709:color_primaries=bt709
+allow_reusesplit[original][copy]; [copy]scale=320:180:force_original_aspect_ratio=increase:flags=fast_bilinear,gblur=sigma=40,scale=1920:1080:flags=fast_bilinear[blurred]; [original]scale=1920:1080:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[scaled]; [blurred][scaled]overlay=floor((main_w-overlay_w)/2/2)*2:floor((main_h-overlay_h)/2/2)*2,setsar=1,scale=1920:1080:force_original_aspect_ratio=decrease:flags=fast_bilinearsplit[original][copy]; [copy]scale=320:180:force_original_aspect_ratio=increase:flags=fast_bilinear,gblur=sigma=40,scale=1280:720:flags=fast_bilinear[blurred]; [original]scale=1280:720:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[scaled]; [blurred][scaled]overlay=floor((main_w-overlay_w)/2/2)*2:floor((main_h-overlay_h)/2/2)*2,setsar=1,scale=1280:720:force_original_aspect_ratio=decrease:flags=fast_bilinearsplit[original][copy]; [copy]scale=180:320:force_original_aspect_ratio=increase:flags=fast_bilinear,gblur=sigma=40,scale=1080:1920:flags=fast_bilinear[blurred]; [original]scale=1080:1920:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[scaled]; [blurred][scaled]overlay=floor((main_w-overlay_w)/2/2)*2:floor((main_h-overlay_h)/2/2)*2,setsar=1,scale=1080:1920:force_original_aspect_ratio=decrease:flags=fast_bilinearsplit[original][copy]; [copy]scale=180:320:force_original_aspect_ratio=increase:flags=fast_bilinear,gblur=sigma=40,scale=720:1280:flags=fast_bilinear[blurred]; [original]scale=720:1280:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos[scaled]; [blurred][scaled]overlay=floor((main_w-overlay_w)/2/2)*2:floor((main_h-overlay_h)/2/2)*2,setsar=1,scale=720:1280:force_original_aspect_ratio=decrease:flags=fast_bilinearFps120PrefixIndexSuffixIndexSmartSingleMkvdelete_originalthread_countnaming_ruleoutput_fpscrop_paramsfission_count[IN_V][IN_A]
+done_invalid_pathsceneecutauto_lib::modules::creative::video_effects::effects::lut_filterformat=yuv420peffectTypedurationMindurationMaxfadeblackfadewhitefadegraysradialhblurwiperightwipeupwipetlwipetrwipeblwipebrslideleftsliderightslideupslidedownsmoothleftsmoothrightsmoothdowncirclecropcircleclosecircleopenhorzclosevertclosediagbldiagbrdiagtldiagtrhlslicevuslice][IN_V]split=2[main][first]; [first]select=eq(n\,0),loop=loop=-1:size=1:start=0,trim=duration=
+g[still0]; [still0]drawbox=x=0:y=0:w=iw:h=ih:color=black@1:t=fill[still]; [still][main]xfade=transition=
+,setpts=PTS-STARTPTS[IN_V]
+,[blend_src]format=rgba,colorchannelmixer=aa=
+T [IN_V][blend_src_a]overlay=shortest=1:eof_action=pass[IN_V]; [IN_V]settb=AVTB[IN_V]
+,[blend_src]format=rgba,colorchannelmixer=aa=
+M [IN_V][blend_src_a]overlay=shortest=1:eof_action=pass:enable='between(mod(t,
+ )'[IN_V]; [IN_V]settb=AVTB[IN_V]
+!settb=AVTB,setpts=(PTS-STARTPTS)/
+",settb=AVTB,setpts=(PTS-STARTPTS)/
+,asetpts=PTS-STARTPTS,
+',asetpts=NB_CONSUMED_SAMPLES/SR/TB[sp_a
+minVolumemaxVolumeenableFadeintelligentAdjustbackgroundMusicminBackgroundVolumemaxBackgroundVolumebackgroundLoopbackgroundFade[main_a_processed]minPitchCentsmaxPitchCentsminNoiseLevelmaxNoiseLevelminEqGainDbmaxEqGainDb ,aresample=48000,asetrate=48000*
+,aresample=48000,atempo=
+m[a_noz]; [a_m0][a_noz]amix=inputs=2:normalize=0:duration=first[a_m1]; [a_m1]equalizer=f=1000:t=h:width=200:g=
+,afade=t=in:st=0:d=
+,afade=t=out:st=
+,afade=t=in:st=0:d=
+[audio_result][bgm_processed] ,aresample=48000,asetrate=48000*
+,aresample=48000,atempo=
+,asetpts=PTS-STARTPTS[outa]
+minSharpenmaxSharpenminBrightnessmaxBrightnessminDenoisemaxDenoiseminColorTempmaxColorTempminContrastmaxContrastminSaturationmaxSaturationstylePrimarystyleVignettestyleFilmGrainstyleGlowgrayscalevintagecross_processcartoonembosssobel[IN_V]scale=iw/12:ih/12:flags=neighbor[pix_s];[pix_s]scale=iw*12:ih*12:flags=neighbor[IN_V]convolution=-2 -1 0 -1 1 1 0 1 2:0 0 0 0 1 0 0 0 0:0 0 0 0 1 0 0 0 0:0 0 0 0 1 0 0 0 0:1:1:1:1:96:0:0:0eq=brightness=-0.32edgedetect=mode=colormix:high=0curves=cross_processcurves=vintage
+[stk_raw][IN_V]scale2ref=flags=lanczos+accurate_rnd+full_chroma_int[stk_scaled][IN_V][stk_scaled]hqdn3d=2:4:5:8[stk_denoised][stk_denoised]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y),8),0,0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y))',format=yuva444p[stk_keyed]         [stk_keyed]copy[stk_alpha] [stk_keyed]colorchannelmixer=aa=
+![IN_V][stk_alpha]overlay='main_w*
+-overlay_w/2':'main_h*
+-overlay_h/2':format=yuv444
+delogo=x='floor(iw*
+[IN_V]split[
+work]crop=iw*
+crop]scale='trunc(iw/
+)',scale='iw*
+fx]overlay='main_w*
+[IN_V]split[
+work]crop=iw*
+crop]gblur=sigma=
+fx]overlay='main_w*
+effect_typeparamsinputsminSizemaxSizeminBlurSigmamaxBlurSigma[IN_V]split[bg_src][fg_src][bg_raw]format=rgba[bg0][bg0]null[bg1]'[bg]tpad=stop_mode=clone:stop_duration=
+,setpts=PTS-STARTPTS[IN_V]
+frame_count4[IN_V][cover_scaled]overlay=0:0:enable='between(t,0,
+,setpts=PTS-STARTPTS
+;[IN_V]format=rgb24[base]; [base][ins_src]blend=all_expr='A*
+f,settb=AVTB,setpts=PTS-STARTPTS,setparams=colorspace=bt709:color_trc=bt709:color_primaries=bt709[outv]
+;,asetpts=PTS-STARTPTS,aresample=async=1:first_pts=0[aulmix]
+-frames:vscale=224:224,setsar=1
+"/feature_extractor/Concat_output_0
+/feature_extractor/Concat"
+Concat*
+"/feature_extractor/Concat_output_0
+%/feature_extractor/Transpose_output_0
+/feature_extractor/Transpose"
+Transpose*
+%/feature_extractor/Transpose_output_0
+'/adaptive_normalization/Concat_output_0
+/adaptive_normalization/Concat"
+Concat*
+'/adaptive_normalization/Concat_output_0
+/Concat_output_0
+/Concat"
+Concat*
+/Concat_output_0
+/Concat_output_0
+/decoder/rnn/Transpose_output_0
+/decoder/rnn/Transpose"
+Transpose*
+/decoder/rnn/Transpose_output_0
+/decoder/rnn/Concat"
+Concat*
+/decoder/rnn/Concat_1"
+Concat*
+/decoder/Transpose_output_0
+/decoder/Transpose"
+Transpose*
+/decoder/Transpose_output_0
+Concatnew_h_dim_1
+Concatnew_c_dim_1
+/Transpose_output_0
+/Transpose"
+Transpose*
+/Transpose_output_0
+!/SDDCNN.0/DDCNN.0/Concat_output_0
+/SDDCNN.0/DDCNN.0/Concat"
+Concat*
+!/SDDCNN.0/DDCNN.0/Concat_output_0
+!/SDDCNN.0/DDCNN.1/Concat_output_0
+/SDDCNN.0/DDCNN.1/Concat"
+Concat*
+!/SDDCNN.0/DDCNN.1/Concat_output_0
+!/SDDCNN.1/DDCNN.0/Concat_output_0
+/SDDCNN.1/DDCNN.0/Concat"
+Concat*
+!/SDDCNN.1/DDCNN.0/Concat_output_0
+!/SDDCNN.1/DDCNN.1/Concat_output_0
+/SDDCNN.1/DDCNN.1/Concat"
+Concat*
+!/SDDCNN.1/DDCNN.1/Concat_output_0
+!/SDDCNN.2/DDCNN.0/Concat_output_0
+/SDDCNN.2/DDCNN.0/Concat"
+Concat*
+!/SDDCNN.2/DDCNN.0/Concat_output_0
+!/SDDCNN.2/DDCNN.1/Concat_output_0
+/SDDCNN.2/DDCNN.1/Concat"
+Concat*
+!/SDDCNN.2/DDCNN.1/Concat_output_0
+/Transpose_1_output_0
+/Transpose_1"
+Transpose*
+/Transpose_1_output_0
+/Transpose_1_output_0
+/Concat_output_0
+/Concat"
+Concat*
+/Transpose_1_output_0
+/Concat_output_0
+ /frame_sim_layer/Concat_output_0
+/frame_sim_layer/Concat"
+Concat*
+ /frame_sim_layer/Concat_output_0
+#/frame_sim_layer/Transpose_output_0
+/frame_sim_layer/Transpose"
+Transpose*
+#/frame_sim_layer/Transpose_output_0
+%/frame_sim_layer/Transpose_1_output_0
+/frame_sim_layer/Transpose_1"
+Transpose*
+%/frame_sim_layer/Transpose_1_output_0
+"/frame_sim_layer/Concat_1_output_0
+/frame_sim_layer/Concat_1"
+Concat*
+"/frame_sim_layer/Concat_1_output_0
+%/frame_sim_layer/Transpose_2_output_0
+/frame_sim_layer/Transpose_2"
+Transpose*
+%/frame_sim_layer/Transpose_2_output_0
+"/frame_sim_layer/Concat_2_output_0
+/frame_sim_layer/Concat_2"
+Concat*
+"/frame_sim_layer/Concat_2_output_0
+"/frame_sim_layer/Concat_3_output_0
+/frame_sim_layer/Concat_3"
+Concat*
+"/frame_sim_layer/Concat_4_output_0
+/frame_sim_layer/Concat_4"
+Concat*
+"/frame_sim_layer/Concat_3_output_0
+"/frame_sim_layer/Concat_4_output_0
+"/frame_sim_layer/Concat_5_output_0
+/frame_sim_layer/Concat_5"
+Concat*
+"/frame_sim_layer/Concat_5_output_0
+"/frame_sim_layer/Concat_6_output_0
+/frame_sim_layer/Concat_6"
+Concat*
+"/frame_sim_layer/Concat_7_output_0
+/frame_sim_layer/Concat_7"
+Concat*
+"/frame_sim_layer/Concat_6_output_0
+"/frame_sim_layer/Concat_7_output_0
+"/frame_sim_layer/Concat_8_output_0
+/frame_sim_layer/Concat_8"
+Concat*
+"/frame_sim_layer/Concat_9_output_0
+/frame_sim_layer/Concat_9"
+Concat*
+"/frame_sim_layer/Concat_8_output_0
+"/frame_sim_layer/Concat_9_output_0
+#/frame_sim_layer/Concat_10_output_0
+/frame_sim_layer/Concat_10"
+Concat*
+#/frame_sim_layer/Concat_10_output_0
+!/color_hist_layer/Concat_output_0
+/color_hist_layer/Concat"
+Concat*
+!/color_hist_layer/Concat_output_0
+#/color_hist_layer/Concat_1_output_0
+/color_hist_layer/Concat_1"
+Concat*
+#/color_hist_layer/Concat_1_output_0
+#/color_hist_layer/Concat_2_output_0
+/color_hist_layer/Concat_2"
+Concat*
+#/color_hist_layer/Concat_2_output_0
+$/color_hist_layer/Transpose_output_0
+/color_hist_layer/Transpose"
+Transpose*
+$/color_hist_layer/Transpose_output_0
+#/color_hist_layer/Concat_3_output_0
+/color_hist_layer/Concat_3"
+Concat*
+#/color_hist_layer/Concat_3_output_0
+&/color_hist_layer/Transpose_1_output_0
+/color_hist_layer/Transpose_1"
+Transpose*
+&/color_hist_layer/Transpose_1_output_0
+#/color_hist_layer/Concat_4_output_0
+/color_hist_layer/Concat_4"
+Concat*
+#/color_hist_layer/Concat_4_output_0
+#/color_hist_layer/Concat_5_output_0
+/color_hist_layer/Concat_5"
+Concat*
+#/color_hist_layer/Concat_6_output_0
+/color_hist_layer/Concat_6"
+Concat*
+#/color_hist_layer/Concat_5_output_0
+#/color_hist_layer/Concat_6_output_0
+#/color_hist_layer/Concat_7_output_0
+/color_hist_layer/Concat_7"
+Concat*
+#/color_hist_layer/Concat_7_output_0
+#/color_hist_layer/Concat_8_output_0
+/color_hist_layer/Concat_8"
+Concat*
+#/color_hist_layer/Concat_9_output_0
+/color_hist_layer/Concat_9"
+Concat*
+#/color_hist_layer/Concat_8_output_0
+#/color_hist_layer/Concat_9_output_0
+$/color_hist_layer/Concat_10_output_0
+/color_hist_layer/Concat_10"
+Concat*
+$/color_hist_layer/Concat_11_output_0
+/color_hist_layer/Concat_11"
+Concat*
+$/color_hist_layer/Concat_10_output_0
+$/color_hist_layer/Concat_11_output_0
+$/color_hist_layer/Concat_12_output_0
+/color_hist_layer/Concat_12"
+Concat*
+$/color_hist_layer/Concat_12_output_0
+/Concat_1_output_0
+/Concat_1"
+Concat*
+/Concat_1_output_0
+&={Eq=f
+-eQ=s
+<FEq=?>y
+;OEq=
+<rEq=T
+;@Ig=Keq=
+EQ=]l
+:)EQ=
+:gEQ;#
+aAC<Fe
+<aac<
+gEq;+
+Eq=<`
+7/bert/encoder/layer.0/attention/self/Transpose_output_0
+./bert/encoder/layer.0/attention/self/Transpose"
+Transpose*
+9/bert/encoder/layer.0/attention/self/Transpose_2_output_0
+0/bert/encoder/layer.0/attention/self/Transpose_2"
+Transpose*
+9/bert/encoder/layer.0/attention/self/Transpose_1_output_0
+0/bert/encoder/layer.0/attention/self/Transpose_1"
+Transpose*
+7/bert/encoder/layer.0/attention/self/Transpose_output_0
+9/bert/encoder/layer.0/attention/self/Transpose_2_output_0
+9/bert/encoder/layer.0/attention/self/Transpose_1_output_0
+9/bert/encoder/layer.0/attention/self/Transpose_3_output_0
+0/bert/encoder/layer.0/attention/self/Transpose_3"
+Transpose*
+9/bert/encoder/layer.0/attention/self/Transpose_3_output_0
+7/bert/encoder/layer.1/attention/self/Transpose_output_0
+./bert/encoder/layer.1/attention/self/Transpose"
+Transpose*
+9/bert/encoder/layer.1/attention/self/Transpose_2_output_0
+0/bert/encoder/layer.1/attention/self/Transpose_2"
+Transpose*
+9/bert/encoder/layer.1/attention/self/Transpose_1_output_0
+0/bert/encoder/layer.1/attention/self/Transpose_1"
+Transpose*
+7/bert/encoder/layer.1/attention/self/Transpose_output_0
+9/bert/encoder/layer.1/attention/self/Transpose_2_output_0
+9/bert/encoder/layer.1/attention/self/Transpose_1_output_0
+9/bert/encoder/layer.1/attention/self/Transpose_3_output_0
+0/bert/encoder/layer.1/attention/self/Transpose_3"
+Transpose*
+9/bert/encoder/layer.1/attention/self/Transpose_3_output_0
+7/bert/encoder/layer.2/attention/self/Transpose_output_0
+./bert/encoder/layer.2/attention/self/Transpose"
+Transpose*
+9/bert/encoder/layer.2/attention/self/Transpose_2_output_0
+0/bert/encoder/layer.2/attention/self/Transpose_2"
+Transpose*
+9/bert/encoder/layer.2/attention/self/Transpose_1_output_0
+0/bert/encoder/layer.2/attention/self/Transpose_1"
+Transpose*
+7/bert/encoder/layer.2/attention/self/Transpose_output_0
+9/bert/encoder/layer.2/attention/self/Transpose_2_output_0
+9/bert/encoder/layer.2/attention/self/Transpose_1_output_0
+9/bert/encoder/layer.2/attention/self/Transpose_3_output_0
+0/bert/encoder/layer.2/attention/self/Transpose_3"
+Transpose*
+9/bert/encoder/layer.2/attention/self/Transpose_3_output_0
+krljlrnoikhlnommpkmlkopnmqmkjkogmnonppokjpknkpmkmmmjmnkmrijolnnmllmqitlilnjrqrmp}mllonmnqllmpkgkqmkmkourjnpnklllojplhjooiskljkmoillklrpkmrnnjlmpnjpomrmmoikkoplnpnnrjjjjkonqllonljkpxilpootjmlwionljlmajfilnlmhnpomjlrqonhnnnkqolpnmoinmohomokjknmjhllmmhnljljngolmjompooageqnlnkinmmpomllolkmonfllmnplnvnlmkqnnlklnlnomopnimtolljqoknkmiomnopnpqnlqngkilopnlqkompjmqlcmnlknpkfnqkUlrpploonnklkoooromkcfmljjmkkjplkmpoljopnkrprnlmrf\opkjjlolmnjnjlpnmpninlkljmimnnilooneqqkjlmmnemokonmqrjqmpkmhsokqltkqllnlmlmoqrkqmnnhlkljclknhkfqjjjomlnkljmZ
+fnkkmonlgeqmnnjmnrppkmpjololklkjkrokokrqnkhelfokplpmirhllpklhbnsmomkmgnpnknllpokpopkklildoomjmlmqjpmkpljjpckowilnmkmoikukjflcqmjpnkm[nmlqlkmkmrjpillnkrmnknonqow`unojhnlmmjhpkvjmmqjnolijhnlknorkmoopioinqnhlmlllkkmjgmqtookrpnpqjoqhmloopiiqvmonjko|knkfjrmjimkjojlpmmpolnkojommlmnonikjnloikplokjnplpllqolnnjnnpkikjjqkkmqkknrmqllonmxlkllollmkolovqhlplilmkpkommjlplpoplijkmllljnollprinmjqnlllgqompjmjrmpoqnmohkhlnprqjjnphkjofjmonojpmkplnnnlkmYgllprqjlmtqmumpikpipnrnolimlsmhmknjokoimmpnjjkdpskmolnmiilkmnolnrqum\oklnknnlljjnknolmmlkjknloqtlsnmlmqnlihflqnnjonpmljrjmjonjoloilkpnmmpnnmqpfiikomjmkmonlloqrqppppqqpdrnllonpnnkopmiilmmoprkkggigqiolljmikkqkolormmopqllloiloolinlplkmmmmhqmkpnnlnmhkokoiolplnponomnpook\lmhkn
+oroikjllmnqlnojqmlpoljkkolqromfqlptimhhljolqgkpQlknqqopniRmopmoomnlnnlxmglokjnmqjlommknpkmkpklknnkjimmmgnnmomjoi^hpqlnhplokkhnljmnmpmolgkkqkkpokiokemrkalnprlrpenjmlmplrnmqpnnr{noljllhlppkimpmkighmpiookmqnloofmkmomkjoojllllkjmlnolnsmkphnsmloitopknjnnrnkkplhrpoqjpknlwirhnikllrlhntmhkjjjqogpinmknljjnkpfnlklnlknmjhmqpmjkoqkopnjkplqnjkhljpnknrpklmmlnnwpnohnmkanpmnmjrklXkrkonobfjsokorniokmhskpeokkkrmqmmollnlnrlnnlknhnmpnrdofnqjmmpkkkanloqpnpppioslgnnjoliooihslpmljjklmkmlmsjlkoonpsmjkllnmonnlstmeqmlilnlohjliipqnpmdkpinflonrmgjlnnlqqqlilkomomjmoorkyqnomnjosolpolnmsjhmmkjjnkooiihjkllomnqmhlmmdnqpplskjnmrmrnkomnhfnnkqqokkpmoollknpphlpnlmppoqnmwmnmqkqnqnolimnogjfkksnkqimopnhjrmmlqmlljnklrtllmjoniqnlnmlglokygeqjpjlnkn
+7/bert/encoder/layer.0/attention/self/Transpose_output_0
+9/bert/encoder/layer.0/attention/self/Transpose_1_output_0
+9/bert/encoder/layer.0/attention/self/Transpose_2_output_0
+9/bert/encoder/layer.0/attention/self/Transpose_3_output_0
+7/bert/encoder/layer.1/attention/self/Transpose_output_0
+9/bert/encoder/layer.1/attention/self/Transpose_1_output_0
+9/bert/encoder/layer.1/attention/self/Transpose_2_output_0
+9/bert/encoder/layer.1/attention/self/Transpose_3_output_0
+7/bert/encoder/layer.2/attention/self/Transpose_output_0
+9/bert/encoder/layer.2/attention/self/Transpose_1_output_0
+9/bert/encoder/layer.2/attention/self/Transpose_2_output_0
+9/bert/encoder/layer.2/attention/self/Transpose_3_output_0
+%/visual/attnpool/Transpose_2_output_0
+/visual/attnpool/Transpose_2"
+Transpose*
+%/visual/attnpool/Transpose_1_output_0
+/visual/attnpool/Transpose_1"
+Transpose*
+"/visual/attnpool/Concat_2_output_0
+/visual/attnpool/Concat_2"
+Concat*
+%/visual/attnpool/Transpose_3_output_0
+/visual/attnpool/Transpose_3"
+Transpose*
+"/visual/attnpool/Concat_2_output_0
+ /visual/attnpool/Concat_output_0
+/visual/attnpool/Concat"
+Concat*
+"/visual/attnpool/Concat_3_output_0
+/visual/attnpool/Concat_3"
+Concat*
+"/visual/attnpool/Concat_4_output_0
+/visual/attnpool/Concat_4"
+Concat*
+"/visual/attnpool/Concat_5_output_0
+/visual/attnpool/Concat_5"
+Concat*
+"/visual/attnpool/Concat_6_output_0
+/visual/attnpool/Concat_6"
+Concat*
+"/visual/attnpool/Concat_7_output_0
+/visual/attnpool/Concat_7"
+Concat*
+"/visual/attnpool/Concat_8_output_0
+/visual/attnpool/Concat_8"
+Concat*
+"/visual/attnpool/Concat_9_output_0
+/visual/attnpool/Concat_9"
+Concat*
+#/visual/attnpool/Concat_10_output_0
+/visual/attnpool/Concat_10"
+Concat*
+"/visual/attnpool/Concat_2_output_0
+"/visual/attnpool/Concat_2_output_0
+"/visual/attnpool/Concat_2_output_0
+ /visual/attnpool/Concat_output_0
+#/visual/attnpool/Transpose_output_0
+/visual/attnpool/Transpose"
+Transpose*
+#/visual/attnpool/Transpose_output_0
+#/visual/attnpool/Transpose_output_0
+"/visual/attnpool/Concat_1_output_0
+/visual/attnpool/Concat_1"
+Concat*
+"/visual/attnpool/Concat_1_output_0
+%/visual/attnpool/Transpose_1_output_0
+%/visual/attnpool/Transpose_2_output_0
+%/visual/attnpool/Transpose_3_output_0
+"/visual/attnpool/Concat_3_output_0
+"/visual/attnpool/Concat_4_output_0
+"/visual/attnpool/Concat_5_output_0
+%/visual/attnpool/Transpose_4_output_0
+/visual/attnpool/Transpose_4"
+Transpose*
+%/visual/attnpool/Transpose_5_output_0
+/visual/attnpool/Transpose_5"
+Transpose*
+%/visual/attnpool/Transpose_6_output_0
+/visual/attnpool/Transpose_6"
+Transpose*
+%/visual/attnpool/Transpose_4_output_0
+"/visual/attnpool/Concat_6_output_0
+%/visual/attnpool/Transpose_5_output_0
+"/visual/attnpool/Concat_7_output_0
+%/visual/attnpool/Transpose_6_output_0
+"/visual/attnpool/Concat_8_output_0
+%/visual/attnpool/Transpose_7_output_0
+/visual/attnpool/Transpose_7"
+Transpose*
+%/visual/attnpool/Transpose_7_output_0
+%/visual/attnpool/Transpose_8_output_0
+/visual/attnpool/Transpose_8"
+Transpose*
+%/visual/attnpool/Transpose_8_output_0
+"/visual/attnpool/Concat_9_output_0
+#/visual/attnpool/Concat_10_output_0
+<aAC<:
+ /visual/attnpool/Concat_output_0
+#/visual/attnpool/Transpose_output_0
+"/visual/attnpool/Concat_1_output_0
+"/visual/attnpool/Concat_2_output_0
+%/visual/attnpool/Transpose_1_output_0
+%/visual/attnpool/Transpose_2_output_0
+%/visual/attnpool/Transpose_3_output_0
+"/visual/attnpool/Concat_3_output_0
+%/visual/attnpool/Transpose_4_output_0
+"/visual/attnpool/Concat_4_output_0
+%/visual/attnpool/Transpose_5_output_0
+"/visual/attnpool/Concat_5_output_0
+%/visual/attnpool/Transpose_6_output_0
+"/visual/attnpool/Concat_6_output_0
+"/visual/attnpool/Concat_7_output_0
+"/visual/attnpool/Concat_8_output_0
+%/visual/attnpool/Transpose_7_output_0
+%/visual/attnpool/Transpose_8_output_0
+"/visual/attnpool/Concat_9_output_0
+#/visual/attnpool/Concat_10_output_0
+pathsa tuple of size 4struct DialogFilter with 2 elementsstruct OpenDialogOptions with 9 elementsstruct SaveDialogOptions with 4 elementsstruct RewriteRequeststruct RewriteRequest with 3 elementsstruct SubtitleFramestruct SubtitleFrame with 4 elementsstruct WordTimestampstruct WordTimestamp with 3 elementsstruct VerifyPayloadstruct VerifyPayload with 2 elementscmd__TAURI_INVOKE_KEY__struct Message with 6 elementsstruct RegisterPayloadstruct RegisterPayload with 3 elementsstruct RedeemCardPayloadstruct RedeemCardPayload with 3 elementsstruct RebindDevicePayloadstruct RebindDevicePayload with 2 elementsheaderscustomProtocolIpcBlockedstruct ChangePasswordPayloadstruct ChangePasswordPayload with 3 elementsstruct MaterialDescriptionstruct MaterialDescription with 3 elementsstruct WordItemstruct WordItem with 4 elementsstruct UsageInfo with 1 elementstruct ChatUsage with 3 elementsstruct ChatChoicestruct ChatChoice with 3 elementsstruct SentenceInfostruct SentenceInfo with 2 elementsstruct BgmConfig with 3 elementsstruct HslConfig with 4 elementsstruct ChatMessagestruct ChatMessage with 2 elementsstruct variant MessagePart::Textstruct variant MessagePart::ImageUrlstruct variant MessagePart::ImageUrl with 1 elementstruct variant MessagePart::Text with 1 elementstruct ChunkResponsestruct ChunkResponse with 6 elementsstruct CropConfigstruct CropConfig with 5 elementsstruct FolderTaskstruct FolderTask with 9 elementsstruct ScriptItemstruct ScriptItem with 2 elementsstruct ChatResponsestruct ChatResponse with 6 elementsstruct ClipSegmentstruct ClipSegment with 4 elementsstruct StylePresetstruct StylePreset with 9 elementsstruct VoiceConfigstruct VoiceConfig with 6 elementsstruct DelogoRegionstruct DelogoRegion with 4 elementsstruct OutputConfigstruct OutputConfig with 2 elementsstruct Effectstruct Effect with 3 elementsstruct RenameItemstruct RenameItem with 2 elementsstruct SubtitleInputstruct SubtitleInput with 4 elementsstruct ZoomPanConfigstruct ZoomPanConfig with 6 elementsstruct ImageUrlContentstruct ImageUrlContent with 1 elementstruct SliceGroupTaskstruct SliceGroupTask with 4 elementsstruct SubtitleConfigstruct SubtitleConfig with 15 elementsstruct ProcessRequeststruct ProcessRequest with 15 elementsvariant index 0 <= i < 2struct AiAnalysisGroupstruct AiAnalysisGroup with 2 elementsstruct SmartClipParamsstruct RenameRequeststruct RenameRequest with 2 elementsstruct AiAnalysisResultstruct AiAnalysisResult with 1 elementstruct AiAnalyzeRequeststruct AiAnalyzeRequest with 6 elementsstruct VideoExportGroupstruct VideoExportGroup with 3 elementsstruct ClipParamsstruct ClipParams with 12 elementsstruct AsrAnalyzeRequeststruct AsrAnalyzeRequest with 1 elementstruct TextWatermarkConfigstruct TextWatermarkConfig with 16 elementsstruct FolderMixTaskstruct FolderMixTask with 7 elementsstruct ImageWatermarkConfigstruct ImageWatermarkConfig with 7 elementsstruct LiveClipExportRequeststruct LiveClipExportRequest with 14 elementsstruct RemoveWatermarkConfigstruct RemoveWatermarkConfig with 5 elementsstruct RewriteOutputstruct RewriteOutput with 1 elementstruct VariantOutputstruct VariantOutput with 2 elementsstruct ProcessRequest with 4 elementsstruct ConvertRequeststruct ConvertRequest with 9 elementsstruct CategoryGroupTaskstruct CategoryGroupTask with 4 elementsstruct MixProcessRequeststruct MixProcessRequest with 16 elementsstruct CategoryClipParamsstruct CategoryClipParams with 5 elementsstruct CategoryMixRequeststruct CategoryMixRequest with 20 elementsstruct AiScriptItemstruct AiScriptItem with 4 elementsstruct ExportRequeststruct ExportRequest with 16 elementsstruct PipParams with 10 elementsstruct SavePosterRequeststruct SavePosterRequest with 7 elementsstruct AiAnalysisResult with 2 elementsstruct VideoExportEntrystruct VideoExportEntry with 4 elementsstruct NarrationScriptItemstruct NarrationScriptItem with 6 elementsstruct CoverParamsstruct ExportRequest with 6 elementstuple variant MessageDialogButtons::YesNoCancelCustom with 3 elementstuple variant MessageDialogButtons::OkCancelCustom with 2 elementsstruct RecognizeRequeststruct RecognizeRequest with 1 elementstruct FramerateParamsstruct FramerateParams with 7 elementsstruct SpeedParamsstruct SpeedParams with 5 elementsstruct WatermarkParamsstruct WatermarkParams with 7 elementsstruct CropParamsstruct CropParams with 5 elementsstruct LutFilterParamsstruct LutFilterParams with 2 elementsstruct FadeEffectParamsstruct FadeEffectParams with 3 elementsstruct PixelBlendParamsstruct PixelBlendParams with 4 elementsstruct Regionstruct Region with 4 elementsstruct RotateFlipParamsstruct RotateFlipParams with 5 elementsstruct SceneSplitParamsstruct SceneSplitParams with 7 elementsstruct ProcessingOptionsstruct ProcessingOptions with 9 elementsstruct ZoomPanParamsstruct ZoomPanParams with 5 elementssingle-instancestruct AuthResponsestruct AuthResponse with 5 elementsstruct AudioSettingsParamsstruct PictureAdjustParamsstruct PictureAdjustParams with 16 elementsstruct TextWatermarkParamsstruct StickerOverlayParamsstruct RemoveWatermarkParamsstruct RemoveWatermarkParams with 4 elementsOn macOS, `EventLoop` must be created on the main thread!Tried to dispatch an event, but the event loop that owned the event handler callback seems to be destroyedcannot transmute_copy if Dst is larger than Srcpsk_id_hashinfo_hashsecretbase_nonceexpstatic str is invalid nameno launcher worked, at least one error/usr/bin/open-acannot sample empty rangeInitScriptErrorRpcScriptErrorReceiverErrorSenderErrorMessageSenderHttpErrorProxyEndpointCreationFailedWindowHandleErrorUnsupportedWindowHandleNotMainThreadCustomProtocolTaskInvalidUrlSchemeRegisterErrorDuplicateCustomProtocolContextDuplicateCustomProtocolDataStoreInUsepoisoned menu mutex__tauri_window_menu____tauri_help_menu__poisoned plugin store2.10.3resolver consumed__TAURI_CHANNEL__fetchinvalid IPC request URLunable to serialize response error string to jsonmissing Tauri-Invoke-Key headerOriginmissing Origin headerTauri-Callbackmissing Tauri-Callback headerTauri-Errormissing Tauri-Error headerTauri error header value must be a numeric stringTauri error header value must be a stringTauri callback header value must be a numeric stringTauri callback header value must be a stringOrigin header is not a valid URLOrigin header value must be a stringTauri invoke key header value must be a stringunknown content type
+assertion failed: seq1.len().map_or(true, |x| x <= self.limit_total)assertion failed: !self.ranges[a].is_intersection_empty(&other.ranges[b])assertion failed: !self.ranges.is_empty()assertion failed: add_lower || add_upperinternal error: entered unreachable code: expected expr or alt, got Unicode classinternal error: entered unreachable code: expected expr or alt, got byte classinternal error: entered unreachable code: expected expr or alt, got repetitioninternal error: entered unreachable code: expected expr or alt, got groupinternal error: entered unreachable code: expected expr or alt, got concat markerinternal error: entered unreachable code: expected expr or alt, got alt branch marker
+internal error: entered unreachable code: expected expr or concat, got Unicode classinternal error: entered unreachable code: expected expr or concat, got byte classinternal error: entered unreachable code: expected expr or concat, got repetitioninternal error: entered unreachable code: expected expr or concat, got groupinternal error: entered unreachable code: expected expr or concat, got alt markerinternal error: entered unreachable code: expected expr or concat, got alt branch markerassertion failed: !self.flags().unicode()assertion failed: self.flags().unicode()09AZaz
+Prepended_Concatenation_Mark
+AgealphabeticasciihexdigitbcBidi_ClassbidicbidiclassbidicontrolbidimbidimirroredbidimirroringglyphBidi_Mirroring_GlyphbidipairedbracketBidi_Paired_BracketbidipairedbrackettypeBidi_Paired_Bracket_TypeblkblockbmgbpbbptcanonicalcombiningclassCanonical_Combining_ClasscasedcasefoldingCase_FoldingcaseignorablecccceComposition_ExclusionchangeswhencasefoldedchangeswhencasemappedchangeswhenlowercasedchangeswhennfkccasefoldedChanges_When_NFKC_CasefoldedchangeswhentitlecasedchangeswhenuppercasedcicjkaccountingnumerickAccountingNumericcjkcompatibilityvariantkCompatibilityVariantcjkiicorekIICorecjkirggsourcekIRG_GSourcecjkirghsourcekIRG_HSourcecjkirgjsourcekIRG_JSourcecjkirgkpsourcekIRG_KPSourcecjkirgksourcekIRG_KSourcecjkirgmsourcekIRG_MSourcecjkirgssourcekIRG_SSourcecjkirgtsourcekIRG_TSourcecjkirguksourcekIRG_UKSourcecjkirgusourcekIRG_USourcecjkirgvsourcekIRG_VSourcecjkothernumerickOtherNumericcjkprimarynumerickPrimaryNumericcjkrsunicodekRSUnicodecompexFull_Composition_ExclusioncompositionexclusioncwkcfcwlcwtcwudecompositionmappingDecomposition_MappingdecompositiontypeDecomposition_TypedefaultignorablecodepointdepdeprecateddidiadiacriticdmdteaeastasianwidthebaseecompemojiemojicomponentemojimodifieremojimodifierbaseemojipresentationepresequideoEquivalent_Unified_IdeographequivalentunifiedideographexpandsonnfcExpands_On_NFCexpandsonnfdExpands_On_NFDexpandsonnfkcExpands_On_NFKCexpandsonnfkdExpands_On_NFKDextextendedpictographicextpictfcnfkcFC_NFKC_ClosurefcnfkcclosurefullcompositionexclusiongcgcbGrapheme_Cluster_BreakgeneralcategorygraphemebasegraphemeclusterbreakgraphemeextendgraphemelinkgrbasegrextgrlinkhangulsyllabletypeHangul_Syllable_TypehexhsthyphenidcidcompatmathcontinueidcompatmathstartidcontinueideographicidsidsbinaryoperatoridstartidstrinaryoperatorIndic_Conjunct_BreakindicconjunctbreakindicpositionalcategoryIndic_Positional_CategoryindicsyllabiccategoryIndic_Syllabic_CategoryiscISO_CommentjamoshortnameJamo_Short_NamejgJoining_GroupjoincjoincontroljoininggroupjoiningtypeJoining_TypejsnjtkaccountingnumerickcompatibilityvariantkehcatkEH_CatkehdesckehhgkEH_HGkehifaokEH_JSeshkehnomirrorkEH_NoMirrorkehnorotatekEH_NoRotatekiicorekirggsourcekirghsourcekirgjsourcekirgkpsourcekirgksourcekirgmsourcekirgssourcekirgtsourcekirguksourcekirgusourcekirgvsourcekothernumerickprimarynumerickrsunicodelbLine_BreakLowercase_Mappinglinebreakloelogicalorderexceptionlowercasemcmmodifiercombiningmarknana1Unicode_1_NamenamealiasName_AliasncharnfcqcNFC_Quick_ChecknfcquickchecknfdqcNFD_Quick_ChecknfdquickchecknfkccasefoldNFKC_CasefoldnfkccfnfkcqcnfkcquickchecknfkcscfNFKC_Simple_CasefoldnfkcsimplecasefoldnfkdqcnfkdquickchecknoncharactercodepointntNumeric_TypenumerictypenumericvalueNumeric_ValuenvoalphaodiogrextoloweromathotheralphabeticotherdefaultignorablecodepointothergraphemeextendotheridcontinueotheridstartotherlowercaseothermathotheruppercaseoupperpatsynpatternsyntaxpatternwhitespacepatwspcmprependedconcatenationmarkqmarkquotationmarkradicalregionalindicatorrisbSentence_BreakscfSimple_Case_FoldingScript_ExtensionsscxsdsentencebreaksfcsimplecasefoldingsimplelowercasemappingSimple_Lowercase_MappingsimpletitlecasemappingSimple_Titlecase_MappingsimpleuppercasemappingSimple_Uppercase_MappingslcsoftdottedstcstermsuctcTitlecase_MappingterminalpunctuationucUppercase_Mappinguideounicode1nameunicoderadicalstrokeuppercaseursvariationselectorverticalorientationVertical_OrientationvovswbWord_Breakwhitespacewordbreakwspacexidcontinuexonfcxonfdxonfkcxonfkd1.1V10_0V11_0V12_0V12_1V13_0V14_0V15_0V15_1V16_02.02.13.03.13.24.04.15.05.15.26.06.16.26.37.08.09.0Unassignedunassignedv11v20v21v30v31v32v40v41v50v51v52v60v61v62v63v70v80v90ccasedletterCased_LetterccFormatClose_PunctuationcncoPrivate_UsecombiningmarkconnectorpunctuationConnector_PunctuationcontrolcsSurrogatecurrencysymbolCurrency_SymboldashpunctuationdecimalnumberenclosingmarkEnclosing_MarkFinal_PunctuationformatinitialpunctuationInitial_PunctuationlLetterletterletternumberLetter_NumberlineseparatorLine_SeparatorlllmModifier_LetterloOther_LetterlowercaseletterltlumathsymbolMath_SymbolmcSpacing_MarkmemnNonspacing_MarkmodifierlettermodifiersymbolModifier_SymbolnNumberndnlnoOther_NumbernonspacingmarkopenpunctuationotherotherletterothernumberOther_PunctuationothersymbolOther_SymbolpPunctuationparagraphseparatorParagraph_SeparatorpcpdpepfpipoprivateusepspunctuationSeparatorsksmsospaceseparatorSpace_SeparatorspacingmarksurrogatesymboltitlecaseletteruppercaseletterzzlzpzscrCRebE_BaseE_Base_GAZebgemE_ModifieremodifierexExtendextendgazGlue_After_ZwjglueafterzwjLlfLFlvLVlvtLVTppPrependprependSpacingMarktTvVxxzwjZWJadlamAdlamCaucasian_AlbaniananatolianhieroglyphsAnatolian_HieroglyphsarabicavestanAvestanBamumbamumBassa_VahbatakBatakbengalibhaiksukiBhaiksukiBrahmibrahmiBraillebrailleBuhidbuhidChakmacanadianaboriginalCanadian_AboriginalCariancariancaucasianalbanianchakmachorasmianChorasmiancommonCommonCopticcopticCypro_MinoanCypriotcuneiformCuneiformcypriotcyprominoandeseretDeseretDevanagaridevanagariDives_AkurudivesakuruDogradograEgyptian_HieroglyphsegyptianhieroglyphsElbasanelbasanElymaicelymaicGaraygarayGlagoliticglagoliticGunjala_GondiMasaram_GondiGothicgothicGranthagranthagreekGurung_KhemagunjalagondigurungkhemahanHanHangulhangulhanifirohingyaHanifi_RohingyaHanunoohanunooHatranhatranhebrewPahawh_HmongNyiakeng_Puachue_HmongKatakana_Or_HiraganaOld_HungarianimperialaramaicinheritedInheritedinscriptionalpahlaviInscriptional_PahlaviinscriptionalparthianInscriptional_ParthianOld_ItalickaithiKaithikannadakatakanaorhiraganakayahliKharoshthikharoshthikhitansmallscriptKhitan_Small_ScriptkhmerKhojkikhojkikhudawadiKhudawadiKirat_RailaolatinLatinLepchalepchaLimbulimbulinearalinearbLycianlycianLydianlydianMakasarmakasarmalayalamMandaicmandaicManichaeanmanichaeanMarchenmarchenmasaramgondimedefaidrinMedefaidrinmeeteimayekMeetei_MayekMende_KikakuimendekikakuiMeroitic_HieroglyphsmeroiticcursivemeroitichieroglyphsMongolianmongolianmroMroMultanimultanimyanmarMyanmarnabataeanNabataeanNag_MundarinagmundariNandinagarinandinagariOld_North_ArabiannewtailueNew_Tai_LuenkoNkoNushunushunyiakengpuachuehmongOghamoghamolchikioldhungarianolditalicoldnortharabianoldpermicOld_PermicoldpersianOld_PersianoldsogdianOld_SogdianoldsoutharabianOld_South_ArabianoldturkicOld_TurkicolduyghurOld_UyghurolonalOl_OnaloriyaOriyaosageOsageOsmanyaosmanyapahawhhmongPalmyrenepalmyrenePau_Cin_HaupaucinhauphagspaPsalter_PahlaviPhoenicianphoenicianpsalterpahlavirejangRejangrunicRunicsamaritanSamaritanSaurashtrasaurashtraSignWritingsharadaSharadashavianShavianSiddhamsiddhamsignwritingsinhalaSogdiansogdianSora_SompengsorasompengSoyombosoyomboSundanesesundaneseSunuwarsunuwarSyloti_NagrisylotinagrisyriactagalogTagalogtaileTai_LetaithamtaivietTakritakritamilTanguttangsaTangsatangutteluguThaanathaanatibetanTirhutatirhutatodhriTodhritulutigalariTulu_TigalariunknownvaiVaiwanchoWanchoWarang_CitiwarangcitiYezidiyezidiyizanabazarsquareatATermatermclfoleOLetterLowernuNumericnumericoletterSContinuescontinueseSepsepspSpstSTermupUpperaletterALetterdoublequoteDouble_QuotedqExtendNumLetextendnumlethebrewletterHebrew_LetterhlkambMidNumLetmidletterMidLettermidnumMidNummidnumletmlnewlineNewlinesinglequoteSingle_QuotesqwsegspaceWSegSpaceassertion failed: i > self.nextassertion failed: start <= end
+StartStartLFEndLFStartCRLFEndCRLFWordAsciiWordAsciiNegateWordUnicodeWordUnicodeNegateWordStartAsciiWordEndAsciiWordEndUnicodeWordStartHalfAsciiWordStartHalfUnicodeWordEndHalfUnicode' 'CaptureindexsubLiteralClassRepetitionConcatAlternation
+EndEntityChainserial_numberrevocation_datereason_codeinvalidity_dateKeyCompromiseCaCompromiseAffiliationChangedSupersededCessationOfOperationCertificateHoldRemoveFromCrlPrivilegeWithdrawnAaCompromiseOwnedSignedDatatoo many redirectsOwnedPoolDisabledCheckoutNoLongerWantedCheckedOutClosedValueassertion failed: cnt <= self.limitIncompleteBodyReasonPhrase*/*
+CloseNotifyBadRecordMacRecordOverflowDecompressionFailureNoCertificateBadCertificateUnsupportedCertificateCertificateRevokedCertificateExpiredCertificateUnknownUnknownCAAccessDeniedExportRestrictionProtocolVersionInsufficientSecurityInternalErrorInappropriateFallbackUserCanceledNoRenegotiationUnsupportedExtensionCertificateUnobtainableBadCertificateStatusResponseBadCertificateHashValueUnknownPSKIdentityCertificateRequiredEncryptedClientHelloRequired
+cannot panic during the backtrace functionInstanttv_sectv_nsecunsupported backtracedisabled backtraceoverflow when adding duration to instantOsCustomAccessErrorConnectionRefusedConnectionResetHostUnreachableNetworkUnreachableConnectionAbortedNotConnectedAddrInUseNetworkDownBrokenPipeAlreadyExistsNotADirectoryIsADirectoryDirectoryNotEmptyReadOnlyFilesystemFilesystemLoopStaleNetworkFileHandleInvalidInputInvalidDataWriteZeroStorageFullNotSeekableQuotaExceededFileTooLargeResourceBusyExecutableFileBusyCrossesDevicesTooManyLinksInvalidFilenameArgumentListTooLongInterruptedUnexpectedEofOutOfMemoryInProgressUncategorizedreceiving on a closed channelFree Lossless Audio Codec Nativeaudio/flacpcm_s32lePCM Signed 32-bit Little-Endian Interleavedpcm_s32bePCM Signed 32-bit Big-Endian Interleavedpcm_s24lePCM Signed 24-bit Little-Endian Interleavedpcm_s24bePCM Signed 24-bit Big-Endian Interleavedpcm_s16lePCM Signed 16-bit Little-Endian Interleavedpcm_s16bePCM Signed 16-bit Big-Endian Interleavedpcm_s8PCM Signed 8-bit Interleavedpcm_u32lePCM Unsigned 32-bit Little-Endian Interleavedpcm_u32bePCM Unsigned 32-bit Big-Endian Interleavedpcm_u24lePCM Unsigned 24-bit Little-Endian Interleavedpcm_u24bePCM Unsigned 24-bit Big-Endian Interleavedpcm_u16lePCM Unsigned 16-bit Little-Endian Interleavedpcm_u16bePCM Unsigned 16-bit Big-Endian Interleavedpcm_u8PCM Unsigned 8-bit Interleavedpcm_f32lePCM 32-bit Little-Endian Floating Point Interleavedpcm_f32bePCM 32-bit Big-Endian Floating Point Interleavedpcm_f64lePCM 64-bit Little-Endian Floating Point Interleavedpcm_f64bePCM 64-bit Big-Endian Floating Point InterleavedPCM A-lawpcm_mulawPCM Mu-lawMicrosoft ADPCMadpcm_ima_wavADPCM IMA WAVaacAdvanced Audio CodingVorbismp3MPEG Audio Layer 3Free Lossless Audio CodecAudio Data Transport Stream (native AAC)audio/aac
+mpa: invalid block_typempa: granule big_values > 288mpa: invalid mpeg audio layermpa: invalid audio buffer signal spec for packetmpa: invalid packet lengthinvalid mpeg audio headersymphonia_bundle_mp3::demuxermpa: invalid codec typefound an unexpected vbri tag, discardingfound an unexpected xing tag, discardingcheck failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/mod.rs:310symphonia_codec_aac::aacaac: invalid datacheck failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/mod.rs:311check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/mod.rs:313aac: coupling channel elementaac: program configaac: invalid mid-side maskcheck failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:592symphonia_codec_aac::aac::ics
+aac: invalid band typecheck failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:259check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:328check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:336check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:314check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:419check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs:429aac: predictor data
+check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/tns.rs:49symphonia_codec_aac::aac::ics::tnsaac: gain control dataaac: ics reserved bit set
+check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/mod.rs:97aac: TTS configaac: structured audio configaac: program config elementaac: version3 extensionsaac: ER CELP configaac: ER HVXC configaac: parametric configaac: SSC configaac: MPEG Surround configaac: MPEG Layer 1/2/3 configaac: DST configaac: ALS configaac: SLS configaac: ELD configaac: symbolic music configaac: error protection configadts: forbidden sample rateadts: reserved sample rateadts: only 1 aac frame per adts packet is supportedadts: invalid adts frame length
+check failed at /Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/mod.rs:430aac: sample rate is requiredaac: aac too complexaac: channels or channel layout is requiredaac: invalid codec type
+estimating duration from bitrate, may be inaccurate for vbr filessymphonia_codec_aac::adts
+invalid picture block datasymphonia_metadata::vorbisthe base64 encoding of a picture block is invalidalbum artistalbumalbumartistalbumartistsortalbumsortartistartistsortauthorbarcodebpmcatalog #catalogcatalognumbercatalogue #commentcompileationconductorcopyrightdescriptiondiscnumberdiscsubtitledisctotaldisknumberdisksubtitledisktotaldjmixerean/upnencoded-byencodergenrelabellicenselyricsmediamixermusicbrainz_albumartistidmusicbrainz_albumidmusicbrainz_artistidmusicbrainz_discidmusicbrainz_originalalbumidmusicbrainz_originalartistidmusicbrainz_recordingidmusicbrainz_releasegroupidmusicbrainz_releasetrackidmusicbrainz_trackidmusicbrainz_workidorganizationoriginaldateperformerproductnumberpublisherratingreleasecountryremixerreplaygain_album_gainreplaygain_album_peakreplaygain_track_gainreplaygain_track_peakscripttitlesorttotaldiscstotaltrackstracknumbertracktotalunsyncedlyricsupcversionwriterbuffer underrunBUFCNTCOMCRAEQUETCGEOIPLLNKMCIMLLPCSPICPOPREVRVASLTSTCTALTBPTCMTCOTCRTDATDYTENTFTTIMTKETLATLETMTTOATOFTOLTORTOTTP1TP2TP3TP4TPATPBTRCTRDTRKTS2TSATSCTSITSPTSSTSTTT1TT2TT3TXTTXXTYEUFIULTWAFWARWASWCMWCPWPBWXXACOUSTID FINGERPRINTACOUSTID IDBARCODECATALOGNUMBERLICENSEMUSICBRAINZ ALBUM ARTIST IDMUSICBRAINZ ALBUM IDMUSICBRAINZ ARTIST IDMUSICBRAINZ RELEASE GROUP IDMUSICBRAINZ WORK IDREPLAYGAIN_ALBUM_GAINREPLAYGAIN_ALBUM_PEAKREPLAYGAIN_TRACK_GAINREPLAYGAIN_TRACK_PEAKSCRIPTcapacity overflowcrosshairCursorpointingHandCursorarrowCursorIBeamCursor_helpCursorbusyButClickableCursorcontextualMenuCursorIBeamCursorForVerticalLayoutdragLinkCursordragCopyCursoroperationNotAllowedCursoropenHandCursor_zoomInCursor_zoomOutCursorresizeRightCursorresizeUpCursor_windowResizeNorthEastCursor_windowResizeNorthWestCursor_windowResizeSouthEastCursor_windowResizeSouthWestCursor_windowResizeNorthEastSouthWestCursor_windowResizeNorthWestSouthEastCursorresizeLeftRightCursorresizeUpDownCursor
+profileservicedefaulthimselfdetailscontentsupportstartedmessagesuccessfashion<title>countryaccountcreatedstoriesresultsrunningprocesswritingobjectsvisiblewelcomearticleunknownnetworkcompanydynamicbrowserprivacyproblemServicerespectdisplayrequestreservewebsitehistoryfriendsoptionsworkingversionmillionchannelwindow.addressvisitedweathercorrectproductedirectforwardyou canremovedsubjectcontrolarchivecurrentreadinglibrarylimitedmanagerfurthersummarymachineminutesprivatecontextprogramsocietynumberswrittenenabledtriggersourcesloadingelementpartnerfinallyperfectmeaningsystemskeepingculture&quot;,journalprojectsurfaces&quot;expiresreviewsbalanceEnglishContentthroughPlease opinioncontactaverageprimaryvillageSpanishgallerydeclinemeetingmissionpopularqualitymeasuregeneralspeciessessionsectionwriterscounterinitialreportsfiguresmembersholdingdisputeearlierexpressdigitalpictureAnothermarriedtrafficleadingchangedcentralvictoryimages/reasonsstudiesfeaturelistingmust beschoolsVersionusuallyepisodeplayinggrowingobviousoverlaypresentactions</ul>
+aacci
+microsoftgraduallydiscussedhe becameexecutivejquery.jshouseholdconfirmedpurchasedliterallydestroyedup to thevariationremainingit is notcenturiesJapanese among thecompletedalgorithminterestsrebellionundefinedencourageresizableinvolvingsensitiveuniversalprovision(althoughfeaturingconducted), which continued-header">February numerous overflow:componentfragmentsexcellentcolspan="technicalnear the Advanced source ofexpressedHong Kong Facebookmultiple mechanismelevationoffensive</form>
+Copyright javascriptconditionseverything<p class="technologybackground<a class="management&copy; 201javaScriptcharactersbreadcrumbthemselveshorizontalgovernmentCaliforniaactivitiesdiscoveredNavigationtransitionconnectionnavigationappearance</title><mcheckbox" techniquesprotectionapparentlyas well asunt', 'UA-resolutionoperationstelevisiontranslatedWashingtonnavigator. = window.impression&lt;br&gt;literaturepopulationbgcolor="#especially content="productionnewsletterpropertiesdefinitionleadershipTechnologyParliamentcomparisonul class=".indexOf("conclusiondiscussioncomponentsbiologicalRevolution_containerunderstoodnoscript><permissioneach otheratmosphere onfocus="<form id="processingthis.valuegenerationConferencesubsequentwell-knownvariationsreputationphenomenondisciplinelogo.png" (document,boundariesexpressionsettlementBackgroundout of theenterprise("https:" unescape("password" democratic<a href="/wrapper">
+ colspan="</form>
+presumablyhis familyuserAgent.unexpectedincluding challengeda minorityundefined"belongs totaken fromin Octoberposition: said to bereligious Federation rowspan="only a fewmeant thatled to the-->
+reflect theto completebecame moreradioactiverejected bywithout anyhis father,which couldcopy of theto indicatea politicalaccounts ofconstitutesworked wither</a></li>of his lifeaccompaniedclientWidthprevent theLegislativedifferentlytogether inhas severalfor anothertext of thefounded thee with the is used forchanged theusually theplace wherewhereas the> <a href=""><a href="themselves,although hethat can betraditionalrole of theas a resultremoveChilddesigned bywest of theSome peopleproduction,side of thenewslettersused by thedown to theaccepted bylive in theattempts tooutside thefrequenciesHowever, inprogrammersat least inapproximatealthough itwas part ofand variousGovernor ofthe articleturned into><a href="/the economyis the mostmost widelywould laterand perhapsrise to theoccurs whenunder whichconditions.the westerntheory thatis producedthe city ofin which heseen in thethe centralbuilding ofmany of hisarea of theis the onlymost of themany of thethe WesternThere is noextended toStatisticalcolspan=2 |short storypossible totopologicalcritical ofreported toa Christiandecision tois equal toproblems ofThis can bemerchandisefor most ofno evidenceeditions ofelements in&quot;. Thecom/images/which makesthe processremains theliterature,is a memberthe popularthe ancientproblems intime of thedefeated bybody of thea few yearsmuch of thethe work ofCalifornia,served as agovernment.concepts ofmovement in
+MaskSlimuaryobersdayUtf8    menumicablurlogsemitrgbajoinhideshowopensavereadseekstatjpegtiffm2ts-c:vcopy-c:a-b:a.ffm-crfh264KeepposXposY.wavcrop.mp3.ass[wm]donetypeuserDualQuadOctalutsfadeflatnoneminXmaxXminYmaxY.txt-rd1tempdump.tmp.dat.log.bin.idxworkdaysroleEastWestrdevPathitemiconblueIconHidewithuuid_up_Warn
+DashInCBMathahexcwcfcwcmdashemodideoidsbidstidsuincbinpcinscmathnameoidcoidstermxidcxidsV1_110.011.012.012.113.014.015.015.116.0V2_0V2_1V3_0V3_1V3_2V4_0V4_1V5_0V5_1V5_2V6_0V6_1V6_2V6_3V7_0V8_0V9_0v100v110v120v121v130v140v150v151v160MarkmarkadlmaghbahomAhomarabarmiarmnavstbalibamubassbatkbengbhksbopobrahbraibugibuhdcakmcanscarichamChamcherchrscoptcpmncprtcyrldevadiakdogrdsrtduplegypelbaelymethigarageorglaggonggonmgothgrangrekgujrgukhguruhanghanihanohatrhebrhirahluwhmnghmnphrkthungitaljavakalikanakawiKawikharkhmrkhojkitskndakraikthilanalaoolatnlepclimblinalinblisuLisulycilydimahjmakamandmanimarcmedfmendmercmeromiaoMiaomlymmodiModimongmroomteimultmymrnagmnandnarbnbatnewaNewankoonshuogamolckonaoorkhoryaosgeosmaougrpalmpaucpermphagphliphlpphnxplrdprtiqaacqaairjngrohgrunrsamrsarbsaursgnwshawshrdsiddsindsinhsogdsogosorasoyosundsunusylosyrctagbtakrtaletalutamltangtavttelutfngtglgthaathaitibttirhtnsatodrtotoTototutgugarvaiivithwarawchoxpeoxsuxyeziyiiizanbzinhzyyyzzzzLook
+:Transpose:21
+:Transpose:25
+:Transpose:23
+:Transpose:13
+:Transpose:24
+:Transpose:1
+#dctdnoiz=sigma=4.0:overlap=0,scale=
+:flags=bilinear,crop=
+7,noise=alls=2:allf=t,eq=brightness=0.008,vignette=PI/30
+src/ffmpeg/concat.rs
+ concat 
+3asetpts=PTS-STARTPTS,aresample=async=1:first_pts=0,
+Y,setsar=1,format=yuv420p,setparams=colorspace=bt709:color_trc=bt709:color_primaries=bt709
+,scale=
+m:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p,setparams=colorspace=bt709:color_trc=bt709:color_primaries=bt709
+delogo=x=
+:v]format=rgba[wm]
+[wm]scale=
+[wm]colorchannelmixer=aa=
+overlay='
+':format=yuv444
+:a]volume=
+,asetpts=PTS-STARTPTS
+amix=inputs=
+crop=iw*
+n:v]format=rgb24[pb_fmt]; [pb_fmt][IN_V]scale2ref=flags=lanczos+accurate_rnd+full_chroma_int[blend_src][IN_V]; 
+~'[pb_raw]; [pb_raw]format=rgb24[pb_fmt]; [pb_fmt][IN_V]scale2ref=flags=lanczos+accurate_rnd+full_chroma_int[blend_src][IN_V]; 
+scale=
+",asetpts=NB_CONSUMED_SAMPLES/SR/TB
+concat=n=
+concat=n=
+6amix=inputs=2:normalize=0:duration=first[audio_result]
+eq=brightness=
+hqdn3d=
+*[IN_V]split[gl_a][gl_b];[gl_b]gblur=sigma=
+9[gl_blur];[gl_a][gl_blur]blend=all_mode=glow:all_opacity=
+noise=alls=
+vignette=
+:v]scale=
+O:v][IN_V]scale2ref=flags=lanczos+accurate_rnd+full_chroma_int[stk_scaled][IN_V]
+[stk_raw]scale=
+scale=
+delogo=x=
+[fg_src]scale=
+ - overlay_w/2)/2)*2
+ - overlay_h/2)/2)*2
+[bg_src]scale=
+[bg_src]gblur=sigma=
+[bg_b]scale=
+[bg][fg]overlay='
+':format=yuv444[IN_V]
+:v]format=rgba[bg0]
+[bg0]gblur=sigma=
+[bg1]scale=
+[bg_s]crop=
+[bg][fg]overlay='
+':format=yuv444
+:v]scale=
++:(ow-iw)/2:(oh-ih)/2,setsar=1[cover_scaled]
+[cover_raw]scale=
++:(ow-iw)/2:(oh-ih)/2,setsar=1[cover_scaled]
+))',fps=
+):v]format=rgb24[ins_fmt]; [ins_fmt]scale=
+:flags=fast_bilinear,setsar=1
+;'[ins_raw]; [ins_raw]format=rgb24[ins_fmt]; [ins_fmt]scale=
+:flags=fast_bilinear,setsar=1
+[wm]colorchannelmixer=aa=
+[IN_V][wm]overlay='
+':format=yuv444
+hwdownload,format=nv12,scale=
+,format=rgb24
+scale=
+Jinternal error: entered unreachable code: expected literal or concat, got 
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/mod.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/cpe.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/mod.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/dsp.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/codebooks.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/tns.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/ics/pulse.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/aac/window.rs
+/Users/macos/.cargo/registry/src/mirrors.tuna.tsinghua.edu.cn-4dc01642fd091eda/symphonia-codec-aac-0.5.5/src/adts.rs
+low_freq=
+high_freq=
+scale=
+lodr_scale=
+OrtLoopKernelHelper must have a non-null OrtLoopKernelHelper::ConcatOutput function
+OrtScanKernelHelper must have a non-null OrtScanKernelHelper::Transpose function
+Concat
+concat first input value is not -1
+Faild to match concat node for Gather paths
+concat_after_gather does not have expected number of inputs or output edges
+concat_after_gather input 2 does not have expected value
+Transpose
+Failed to match v_concat
+past_k_transpose perm attribute not matched
+present_k_transpose perm attribute not matched
+Failed in match Transpose attribute perm. Expected: 0, 2, 1, 3
+Failed in match v_transpose attribute perm. Expected: 0, 2, 1, 3
+q_transpose perm attribute not matched
+k_transpose has not perm attribute
+k_transpose perm attribute not matched
+Using transpose optimized pattern
+opt_k_transpose perm attribute not matched
+CollectReshapeTransposeMatches
+Fused from DQ+Reshape+Transpose+MatMul
+ApplyReshapeTransposeFusions
+DQMatMulNBitsFusion: fused DQ+Reshape+Transpose
+MatchInputToConcatSubgraph
+/GemmTransposeFusion/
+Fused Gemm with Transpose
+TransposeOptimizer
+TransposeOptimizer_
+Layout/Transpose optimization for 
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/optimizer/matmul_transpose_fusion.cc
+/MatmulTransposeFusion/
+fused MatMul and Transpose 
+bool onnxruntime::GetTransposePerms(const Node &, std::vector<int64_t> &)
+transpose_node.InputDefs().size() == 1
+Created a new Cast node to interchange Cast and Transpose nodes
+Created a new Transpose node to interchange Cast and Transpose nodes
+ConvTranspose
+ConcatTraining
+Cannot replace concat node with initializer:
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/optimizer/transpose_optimization/ort_optimizer_api_impl.cc
+virtual void onnxruntime::ApiGraph::TransposeInitializer(std::string_view, const std::vector<int64_t> &)
+TransposeInitializer
+const_transpose_optimizer
+Transpose Optimizer is adding an unexpected node: 
+Added in transpose optimizer
+com.microsoft.QLinearConcat
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/optimizer/transpose_optimizer.cc
+Transpose optimizer failed: 
+ConcatenateLoopOutput
+Scan<8> spec does not support transpose of output. This should never be called.
+Status onnxruntime::ScanImpl::TransposeOutput()
+TransposeOutput
+T *onnxruntime::AttentionBase<float>::ConcatStateChunk(const T *, const T *, T *, size_t, size_t, size_t, size_t, size_t, std::ptrdiff_t, std::ptrdiff_t, bool) const [T = float]
+Invalid parameters for ConcatStateChunk: head_size=
+T *onnxruntime::AttentionBase<onnxruntime::MLFloat16>::ConcatStateChunk(const T *, const T *, T *, size_t, size_t, size_t, size_t, size_t, std::ptrdiff_t, std::ptrdiff_t, bool) const [T = onnxruntime::MLFloat16]
+bool onnxruntime::EinsumOp::IsTransposeRequired(size_t, const gsl::span<const size_t> &)
+The rank of the input must match permutation size for Transpose
+std::unique_ptr<Tensor> onnxruntime::EinsumOp::Transpose(const Tensor &, const TensorShape &, const gsl::span<const size_t> &, AllocatorPtr, void *, const DeviceHelpers::Transpose &)
+Einsum op: Transpose failed: 
+A Conv/ConvTranspose node has both 'auto_pad' and 'pads' attributes
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/nn/conv_transpose.cc
+DoConvTranspose
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/nn/conv_transpose_attributes.h
+void onnxruntime::ConvTransposeAttributes::ComputePadsAndOutputShape(TensorShape, int64_t, const TensorShapeVector &, const TensorShapeVector &, const TensorShapeVector &, const TensorShapeVector &, const int64_t, ConvPadVector *, TensorShapeVector *, bool) const
+void onnxruntime::ConvTransposeAttributes::ComputeTransposePadAndOutputShape(const int64_t, const int64_t, const int64_t, const int64_t, const int64_t, AutoPadType, int64_t *, int64_t *, int64_t *) const
+void onnxruntime::ResultsNoTransposePrepareForReduce::ValidateNotEmpty()
+void onnxruntime::ValidateNoTransposeReduce(int64_t)
+ConcatFromSequence
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/sequence/concat_from_sequence.cc
+virtual Status onnxruntime::ConcatFromSequence::Compute(OpKernelContext *) const
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/tensor/concatbase.h
+onnxruntime::ConcatBase::ConcatBase(const OpKernelInfo &, bool)
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/tensor/concat.cc
+Status onnxruntime::ConcatBase::PrepareForCompute(OpKernelContext *, const InlinedTensorsVector &, Prepare &) const
+Cannot concatenate scalars
+Ranks of input data are different, cannot concatenate them. expected rank: 
+Non concat axis dimensions must match: Axis 
+Transpose of element size not supported in this build. Size=
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/tensor/transpose.cc
+virtual Status onnxruntime::Transpose::Compute(OpKernelContext *) const
+void onnxruntime::DoTransposeEltWise(int64_t, gsl::span<const int64_t>, size_t, const gsl::span<const size_t> &, const std::string *, std::string *)
+Transpose not implemented for empty tensors.
+void onnxruntime::DoTransposeImpl(int64_t, gsl::span<const int64_t>, size_t, size_t, const gsl::span<const size_t> &, const std::string *, std::string *)
+void onnxruntime::DoTransposeImpl(int64_t, gsl::span<const int64_t>, size_t, size_t, const gsl::span<const size_t> &, const uint8_t *, uint8_t *, size_t)
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/providers/cpu/tensor/transpose.h
+onnxruntime::TransposeBase::TransposeBase(const OpKernelInfo &)
+Attribute perm of Transpose has an invalid value. Value 
+bool onnxruntime::TypedDoTransposeEltWise(int64_t, gsl::span<const int64_t>, size_t, const gsl::span<const size_t> &, const uint8_t *, uint8_t *) [T = unsigned long long]
+bool onnxruntime::TypedDoTransposeEltWise(int64_t, gsl::span<const int64_t>, size_t, const gsl::span<const size_t> &, const uint8_t *, uint8_t *) [T = unsigned int]
+bool onnxruntime::TypedDoTransposeEltWise(int64_t, gsl::span<const int64_t>, size_t, const gsl::span<const size_t> &, const uint8_t *, uint8_t *) [T = unsigned short]
+bool onnxruntime::TypedDoTransposeEltWise(int64_t, gsl::span<const int64_t>, size_t, const gsl::span<const size_t> &, const uint8_t *, uint8_t *) [T = unsigned char]
+DoTransposeSubByte
+Expected to transpose sub-byte tensor
+StringConcat
+MaybeTransposeToBNSHAndAddBias
+AddBiasTranspose
+ConvTransposeWithDynamicPads
+TransposeMatMul
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/contrib_ops/cpu/quantization/qlinear_concat.cc
+onnxruntime::contrib::QLinearConcat::QLinearConcat(const OpKernelInfo &)
+virtual Status onnxruntime::contrib::QLinearConcat::Compute(OpKernelContext *) const
+QLinearConcat
+Gemv found an unexpected CBLAS_TRANSPOSE input of
+void onnxruntime::math::Gemv(CBLAS_TRANSPOSE, int, int, float, const T *, const T *, float, T *, Provider *) [T = double, Provider = onnxruntime::CPUMathUtil]
+void onnxruntime::math::Gemm(CBLAS_TRANSPOSE, CBLAS_TRANSPOSE, ptrdiff_t, ptrdiff_t, ptrdiff_t, Eigen::half, const Eigen::half *, const Eigen::half *, Eigen::half, Eigen::half *, ThreadPool *)
+CblasNoTrans Unexpected CBLAS_TRANSPOSE for TransB of 
+CblasTrans Unexpected CBLAS_TRANSPOSE for TransB of 
+Unexpected CBLAS_TRANSPOSE for TransA of 
+void onnxruntime::math::Gemm(CBLAS_TRANSPOSE, CBLAS_TRANSPOSE, ptrdiff_t, ptrdiff_t, ptrdiff_t, double, const double *, const double *, double, double *, ThreadPool *)
+void onnxruntime::math::GemmEx(CBLAS_TRANSPOSE, CBLAS_TRANSPOSE, ptrdiff_t, ptrdiff_t, ptrdiff_t, MLFloat16, const MLFloat16 *, int, const MLFloat16 *, int, MLFloat16, MLFloat16 *, int, ThreadPool *)
+/Users/runner/work/onnxruntime-build/onnxruntime-build/onnxruntime/onnxruntime/core/framework/transpose_helper.cc
+TransposeSingleAxisOutwards
+void onnxruntime::TransposeSingleAxisOutwards(gsl::span<const size_t>, const Tensor &, Tensor &, size_t, size_t, const TensorShape *, concurrency::ThreadPool *)
+The weight tensor for the gates. Concatenation of `W[iofc]` and `WB[iofc]` (if bidirectional) along dimension 0. The tensor has shape `[num_directions, 4*hidden_size, input_size]`.
+The recurrence weight tensor. Concatenation of `R[iofc]` and `RB[iofc]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 4*hidden_size, hidden_size]`.
+The bias tensor for input gate. Concatenation of `[Wb[iofc], Rb[iofc]]`, and `[WBb[iofc], RBb[iofc]]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 8*hidden_size]`. Optional: If not specified - assumed to be 0.
+The weight tensor for peepholes. Concatenation of `P[iof]` and `PB[iof]` (if bidirectional) along dimension 0. It has shape `[num_directions, 3*hidde_size]`. Optional: If not specified - assumed to be 0.
+A tensor that concats all the intermediate output values of the hidden. It has shape `[seq_length, num_directions, batch_size, hidden_size]`
+Whether A should be transposed
+Whether B should be transposed
+Whether A should be transposed on the last two dimensions before doing multiplication
+Whether B should be transposed on the last two dimensions before doing multiplication
+Whether A should be transposed on the 1st dimension and batch dimensions (dim-1 to dim-rank-2) before doing multiplication
+Whether B should be transposed on the 1st dimension and batch dimensions (dim-1 to dim-rank-2) before doing multiplication
+Whether A should be transposed. Float 8 only supported transA=0.
+Whether B should be transposed. Float 8 only supported transB=1.
+Whether B should be transposed on the last two dimensions before doing multiplication. Default to be 1.
+ReducedShape = Concat <axis = 0> (PrefixShape, SuffixShape)
+The weight tensor for the gates. Concatenation of `W[iofc]` and `WB[iofc]` (if bidirectional) along dimension 0. The tensor has shape `[num_directions, input_size, 4*hidden_size]`.
+The recurrence weight tensor. Concatenation of `R[iofc]` and `RB[iofc]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, hidden_size, 4*hidden_size]`.
+A tensor that concats all the intermediate output values of the hidden. It has shape `[seq_length, num_directions, batch_size, hidden_size]`. 
+Which axis to concat on
+List of tensors/scale/zero_point for concatenation
+Concatenated tensor
+2-dimensional matrix B. Transposed if order_B is ORDER_COL.
+QLinearConvTranspose
+All inputs to Concat must have same rank
+hgemm does not have A x Transposed(B) kernels
+Row-wise MlasQDQTransposeBlockwiseQuantized is not implemented
+void MlasQDQTransposeBlockwiseQuantized(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, bool, int, int, int, MLAS_THREADPOOL *) [Tin = float, qbits = 4, signed_quant = true]
+void MlasQDQTransposeBlockwiseQuantized(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, bool, int, int, int, MLAS_THREADPOOL *) [Tin = float, qbits = 4, signed_quant = false]
+void MlasQDQTransposeBlockwiseQuantized(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, bool, int, int, int, MLAS_THREADPOOL *) [Tin = onnxruntime::MLFloat16, qbits = 4, signed_quant = true]
+void MlasQDQTransposeBlockwiseQuantized(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, bool, int, int, int, MLAS_THREADPOOL *) [Tin = onnxruntime::MLFloat16, qbits = 4, signed_quant = false]
+static void BlockwiseQDQQuantizer<float, 4, true>::TransposeColumnWiseQuantizedPackAligned(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, int32_t, int32_t, int32_t, MLAS_THREADPOOL *) [Tin = float, qbits = 4, signed_quant = true]
+static void BlockwiseQDQQuantizer<float, 4, false>::TransposeColumnWiseQuantized(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, int32_t, int32_t, int32_t, MLAS_THREADPOOL *) [Tin = float, qbits = 4, signed_quant = false]
+static void BlockwiseQDQQuantizer<float, 4, false>::TransposeColumnWiseQuantizedPackAligned(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, int32_t, int32_t, int32_t, MLAS_THREADPOOL *) [Tin = float, qbits = 4, signed_quant = false]
+static void BlockwiseQDQQuantizer<onnxruntime::MLFloat16, 4, true>::TransposeColumnWiseQuantizedPackAligned(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, int32_t, int32_t, int32_t, MLAS_THREADPOOL *) [Tin = onnxruntime::MLFloat16, qbits = 4, signed_quant = true]
+static void BlockwiseQDQQuantizer<onnxruntime::MLFloat16, 4, false>::TransposeColumnWiseQuantized(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, int32_t, int32_t, int32_t, MLAS_THREADPOOL *) [Tin = onnxruntime::MLFloat16, qbits = 4, signed_quant = false]
+static void BlockwiseQDQQuantizer<onnxruntime::MLFloat16, 4, false>::TransposeColumnWiseQuantizedPackAligned(const uint8_t *, const Tin *, const uint8_t *, uint8_t *, Tin *, uint8_t *, int32_t, int32_t, int32_t, MLAS_THREADPOOL *) [Tin = onnxruntime::MLFloat16, qbits = 4, signed_quant = false]
+The graph run each iteration. It has 2+N inputs: (iteration_num, condition, loop carried dependencies...). It has 1+N+K outputs: (condition, loop carried dependencies..., scan_outputs...). Each scan_output is created by concatenating the value of the specified output value at the end of each iteration of the loop. It is an error if the dimensions or data type of these scan_outputs change across loop iterations.
+The graph run each iteration. It has N+M inputs: (loop state variables..., scan_input_elts...). It has N+K outputs: (loop state variables..., scan_output_elts...). Each scan_output is created by concatenating the value of the specified scan_output_elt value at the end of each iteration of the loop. It is an error if the dimensions of these values change across loop iterations.
+        X_NDC = Transpose <perm = [0, 2, 1]> (X_NCD)
+        X_LogSM_NCD = Transpose <perm = [0, 2, 1]> (X_LogSM)
+NewShape = Concat <axis = 0> (N, NumGroups, GroupSize, InstanceShape)
+NewShape = Concat <axis = 0> (Zero1D, Zero1D, NumHeads, NegOne)
+XIn = Transpose <perm = [0, 2, 1, 3]> (X)
+RotateSplitLengths = Concat <axis = 0> (RotaryEmbedDim, NoRotateLength)
+XRotated = Concat <axis = -1> (Real, Imaginary)
+XRotatedInterleavedConcat = Concat <axis = -1> (RealInterleave, ImaginaryInterleave)
+XRotated = Reshape(XRotatedInterleavedConcat, XRotatedShape)
+XConcat = Concat <axis = -1> (XRotated, XNoRotate)
+YTransposed = Identity(XConcat)
+YTransposed = Transpose <perm = [0, 2, 1, 3]> (XConcat)
+Y = Reshape(YTransposed, XShape)
+QIntermediateShape = Concat <axis = 0> (BatchSize, QSeqLen, QNumHeadsAttr, NegOne)
+KVIntermediateShape = Concat <axis = 0> (BatchSize, KVSeqLen, KVNumHeadsAttr, NegOne)
+QReshaped = Transpose <perm = [0, 2, 1, 3]> (QIntermediate)
+KReshaped = Transpose <perm = [0, 2, 1, 3]> (KIntermediate)
+VReshaped = Transpose <perm = [0, 2, 1, 3]> (VIntermediate)
+PresentKey = Concat <axis = 2> (past_key, KReshaped)
+PresentValue = Concat <axis = 2> (past_value, VReshaped)
+KExpandShape = Concat <axis = 0> (BatchSize, KVNumHeads, InterleaveDim, NewKVSeqLen, QKHeadSize)
+VExpandShape = Concat <axis = 0> (BatchSize, KVNumHeads, InterleaveDim, NewKVSeqLen, VHeadSize)
+KAttentionShape = Concat <axis = 0> (BatchSize, QNumHeads, NewKVSeqLen, QKHeadSize)
+VAttentionShape = Concat <axis = 0> (BatchSize, QNumHeads, NewKVSeqLen, VHeadSize)
+KTranspose = Transpose <perm = [0, 1, 3, 2]> (KAttentionInput)
+KScaled = Mul(KTranspose, ScaleFactorF)
+YTranspose = Transpose <perm = [0, 2, 1, 3]> (YPreReshape)
+YNewShape = Concat <axis = 0> (Zero1D, Zero1D, NegOne)
+Y = Reshape(YTranspose, YNewShape)
+AttnBiasShape = Concat <axis = 0> (QSeqLen, NewKVSeqLen)
+Pads = Concat <axis = 0> (Zero1D, PaddingKVSeqLen)
+The weight tensor for input gate. Concatenation of `Wi` and `WBi` (if bidirectional). The tensor has shape `[num_directions, hidden_size, input_size]`.
+The recurrence weight tensor. Concatenation of `Ri` and `RBi` (if bidirectional). The tensor has shape `[num_directions, hidden_size, hidden_size]`.
+The bias tensor for input gate. Concatenation of `[Wbi, Rbi]` and `[WBbi, RBbi]` (if bidirectional). The tensor has shape `[num_directions, 2*hidden_size]`. Optional: If not specified - assumed to be 0.
+The weight tensor for the gates. Concatenation of `W[zrh]` and `WB[zrh]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 3*hidden_size, input_size]`.
+The recurrence weight tensor. Concatenation of `R[zrh]` and `RB[zrh]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 3*hidden_size, hidden_size]`.
+The bias tensor for the gates. Concatenation of `[Wb[zrh], Rb[zrh]]` and `[WBb[zrh], RBb[zrh]]` (if bidirectional) along dimension 0. This tensor has shape `[num_directions, 6*hidden_size]`. Optional: If not specified - assumed to be 0
+A tensor that concats all the intermediate output values of the hidden. It has shape `[seq_length, num_directions, batch_size, hidden_size]`. It is optional if `output_sequence` is 0.
+Which axis to concat on. Accepted range in `[-r, r - 1]`, where `r` is the rank of input tensors. When `new_axis` is 1, accepted range is `[-r - 1, r]`. 
+Insert and concatenate on a new axis or not, default 0 means do not insert new axis.
+Sequence of tensors for concatenation
+concat_result
+Which axis to concat on. A negative value means counting dimensions from the back. Accepted range is [-r, r-1] where r = rank(inputs)..
+List of tensors for concatenation
+transposed
+Transposed output.
+          size_NCDHW = Concat <axis=0> (N, C, D, H, W)
+                  shape_N23 = Concat <axis=0>(N, shape_23)
+                  R1 = Concat <axis=1>(r11, r12, float_zero_1d, t1) # N by 4
+                  R2 = Concat <axis=1>(r21, r22, float_zero_1d, t2)
+                  R3 = Concat <axis=1>(float_zero_1d, float_zero_1d, float_one_1d, float_zero_1d)
+                  theta_then = Concat <axis=1> (R1_, R2_, R3_) # N by 3 by 4
+          zeros_H_W_D = Transpose <perm = [1, 2, 0]> (zeros_D_H_W)
+          grid_d = Transpose <perm = [2, 0, 1]> (grid_d_1)
+          zeros_D_W_H = Transpose <perm = [0, 2, 1]> (zeros_D_H_W)
+          grid_h = Transpose <perm = [0, 2, 1]> (grid_h_1)
+          original_grid = Concat <axis=-1> (grid_w_usqzed, grid_h_usqzed, grid_d_usqzed, ones_D_H_W_usqzed)
+          original_grid_4_DHW_ = Transpose (original_grid_DHW_4)
+          grid_N_DHW_3 = Transpose <perm = [0, 2, 1]> (grid_N_3_DHW)
+          N_D_H_W_3 = Concat <axis=-1> (N, D, H, W, three_1d)
+All inputs to Concat must have same rank. Input 
+Attribute perm for Transpose has repeated value: 
+pads = Concat <axis = 0> (pad_amount_left, pad_amount_right)
+Which axis to concat on.  Default value is 1.
+Tensor to prepend in concatenation
+Tensor to append in concatenation
+Concatenated string tensor
+Concat of 

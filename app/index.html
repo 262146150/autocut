@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ECutAuto-Clone</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; font: 14px/1.6 -apple-system, "PingFang SC", sans-serif;
+        background: #16181d; color: #e6e8ec; padding: 24px;
+      }
+      h1 { font-size: 18px; margin: 0 0 16px; }
+      .row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+      label { width: 88px; color: #9aa0aa; }
+      input, button {
+        background: #23262d; border: 1px solid #353a44; color: #e6e8ec;
+        border-radius: 8px; padding: 8px 12px; font: inherit;
+      }
+      input[type="number"] { width: 90px; }
+      button { cursor: pointer; transition: background .15s; }
+      button:hover { background: #2d323b; }
+      button.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+      button.primary:hover { background: #2f6fe0; }
+      button.danger { background: #3a2326; border-color: #5a2a30; color: #ff9a9a; }
+      #files { flex: 1; min-width: 280px; color: #9aa0aa; font-size: 12px; }
+      .bar { height: 8px; background: #23262d; border-radius: 6px; overflow: hidden; margin-top: 4px; }
+      .bar > i { display: block; height: 100%; width: 0; background: #3b82f6; transition: width .2s; }
+      #log { margin-top: 16px; background: #1b1e24; border: 1px solid #2a2e36; border-radius: 8px;
+             padding: 12px; max-height: 280px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
+      .out a { color: #6ea8ff; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <h1>ECutAuto-Clone · 批量混剪 PoC</h1>
+
+    <div class="row">
+      <button id="pick">选择素材…</button>
+      <span id="files">未选择素材</span>
+    </div>
+    <div class="row">
+      <button id="pickOut">输出目录…</button>
+      <span id="outDir">未选择</span>
+    </div>
+    <div class="row">
+      <label>画布</label>
+      <input id="w" type="number" value="1080" /> ×
+      <input id="h" type="number" value="1920" />
+      <label style="width:auto">出片数</label>
+      <input id="count" type="number" value="3" />
+      <label style="width:auto">FPS</label>
+      <input id="fps" type="number" value="30" />
+    </div>
+    <div class="row">
+      <button id="run" class="primary">开始混剪</button>
+      <button id="cancel" class="danger">取消</button>
+    </div>
+
+    <div class="bar"><i id="prog"></i></div>
+    <div id="log"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

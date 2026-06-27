@@ -1,0 +1,75 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node/Vite
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+*.tsbuildinfo
+
+# Runtime outputs and caches
+_run/
+**/_run/
+_cache/
+**/_cache/
+exports/
+**/exports/
+output/
+outputs/
+tmp/
+temp/
+
+# Rust/Tauri build artifacts
+target/
+**/target/
+app/src-tauri/gen/
+
+# Machine-local app resources and heavy binaries
+app/src-tauri/Resources/
+**/Resources/FFmpeg/
+**/Resources/models/
+*.onnx
+*.dylib
+*.so
+*.dll
+**/Resources/**/ffmpeg
+**/Resources/**/ffprobe
+
+# Generated or local media assets
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.m4v
+*.mp3
+*.m4a
+*.aac
+*.wav
+*.flac
+*.ogg
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ECutAuto-Clone",
+  "version": "0.1.0",
+  "identifier": "com.ecutauto.clone",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ECutAuto-Clone",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.icns"],
+    "resources": {
+      "Resources/FFmpeg": "Resources/FFmpeg",
+      "Resources/models": "Resources/models"
+    }
+  }
+}

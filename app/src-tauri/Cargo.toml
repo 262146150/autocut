@@ -1,0 +1,30 @@
+[package]
+name = "ecutauto-clone"
+version = "0.1.0"
+edition = "2021"
+description = "ECutAuto 架构复刻脚手架（Tauri + FFmpeg + sherpa-onnx）"
+
+[lib]
+name = "ecutauto_clone_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.8"
+
+# 本地 ASR（可选）：需要 onnxruntime 原生库，默认关闭以便先跑通基础版
+# 打开后对应 providers::local_asr，参考 ECutAuto 的 model.1.onnx + libonnxruntime
+[dependencies.sherpa-rs]
+version = "0.6"
+optional = true
+
+[features]
+default = []
+asr = ["dep:sherpa-rs"]
