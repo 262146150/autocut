@@ -5,8 +5,9 @@ import SmartMix from "./pages/SmartMix";
 import SmartSegment from "./pages/SmartSegment";
 import ExportLibrary from "./pages/ExportLibrary";
 import MaterialLibrary from "./pages/MaterialLibrary";
+import Settings from "./pages/Settings";
 import Stub from "./pages/Stub";
-import { ALL, CATS, MIX_LAYOUT_IDS, type ModuleDef } from "./data/modules";
+import { ALL, MIX_LAYOUT_IDS, NAV_CATS, type ModuleDef } from "./data/modules";
 import { Icon } from "./components/Icons";
 
 function ModulePage() {
@@ -46,18 +47,23 @@ function WorkbenchShell() {
           <small>MVP</small>
         </NavLink>
         <nav id="nav" aria-label="主导航">
-          {Object.entries(CATS).map(([cat, modules]) => (
+          {Object.entries(NAV_CATS).map(([cat, modules]) => (
             <div className="nav-group" key={cat}>
               <div className="nav-group-title">{cat}</div>
               {modules.map((mod) => <NavItem key={mod.id} mod={mod} />)}
             </div>
           ))}
         </nav>
+        <NavLink className={({ isActive }) => `sidebar-settings ${isActive ? "active" : ""}`} to="/settings">
+          <span className="nav-ic"><Icon name="settings" size={18} /></span>
+          <span className="nav-label">系统设置</span>
+        </NavLink>
         <div className="foot">本地工作台</div>
       </aside>
       <main className="workspace">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/:id" element={<ModulePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

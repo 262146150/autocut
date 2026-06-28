@@ -2,13 +2,13 @@
 //   开发: 终端1 `node server.mjs`(8787) + 终端2 `pnpm dev`(5173, 自动代理 /api,/_run)
 //   预览构建: `pnpm build` 后 `node server.mjs`，直接访问 http://localhost:8787
 import http from "node:http";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { createReadStream, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, hasAudioStream, rm } from "../poc/pipeline.mjs";
-import { rewriteCopy } from "./llm.mjs";
+import { rewriteCopy, testArkConnection } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
 import { buildSmartMaterialIndex, rankClipsForPrompt } from "./smart_match.mjs";
 import { buildSegmentLibrary } from "./segmenter.mjs";
@@ -20,6 +20,12 @@ const CACHE = path.resolve(__dir, "_cache");
 const EXPORT_ROOTS_FILE = path.join(RUN, "export_roots.json");
 const MATERIAL_LIBRARY_FILE = path.join(RUN, "material_library.json");
 const MATERIAL_DB_FILE = path.join(RUN, "ecutauto.db");
+const DEFAULT_USER_ID = 1;
+const TTS_TEST_TEXT = "测试";
+const TTS_TEST_SEED_RESOURCE_ID = "seed-tts-2.0";
+const TTS_TEST_SEED_SPEAKER = "zh_female_vv_uranus_bigtts";
+const TTS_TEST_10029_RESOURCE_ID = "volc.service_type.10029";
+const TTS_TEST_10029_SPEAKER = "zh_male_beijingxiaoye_emo_v2_mars_bigtts";
 const PORT = 8787;
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
@@ -290,8 +296,115 @@ function getMaterialDb() {
     CREATE INDEX IF NOT EXISTS idx_material_items_root ON material_items(root_path);
     CREATE INDEX IF NOT EXISTS idx_material_items_kind ON material_items(kind);
     CREATE INDEX IF NOT EXISTS idx_material_items_orientation ON material_items(orientation);
+    CREATE TABLE IF NOT EXISTS app_settings (
+      user_id INTEGER NOT NULL DEFAULT 1,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      sensitive INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, key)
+    );
   `);
   return materialDb;
+}
+
+function maskSecret(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.length <= 8) return `${text.slice(0, 2)}****${text.slice(-2)}`;
+  return `${text.slice(0, 4)}****${text.slice(-4)}`;
+}
+
+function readAppSetting(key, userId = DEFAULT_USER_ID) {
+  const row = getMaterialDb()
+    .prepare("SELECT value FROM app_settings WHERE user_id = ? AND key = ?")
+    .get(userId, key);
+  return String(row?.value || "").trim();
+}
+
+function writeAppSetting(key, value, { sensitive = false, userId = DEFAULT_USER_ID } = {}) {
+  const db = getMaterialDb();
+  const text = String(value || "").trim();
+  if (!text) {
+    db.prepare("DELETE FROM app_settings WHERE user_id = ? AND key = ?").run(userId, key);
+    return;
+  }
+  db.prepare(`
+    INSERT INTO app_settings (user_id, key, value, sensitive, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, key) DO UPDATE SET
+      value = excluded.value,
+      sensitive = excluded.sensitive,
+      updated_at = excluded.updated_at
+  `).run(userId, key, text, sensitive ? 1 : 0, new Date().toISOString());
+}
+
+function settingFromDb(key) {
+  const dbValue = readAppSetting(key);
+  if (dbValue) return { value: dbValue, source: "db" };
+  return { value: "", source: "none" };
+}
+
+function volcengineSettings() {
+  const arkKey = settingFromDb("volc_ark_api_key");
+  const arkModel = settingFromDb("volc_ark_model");
+  const ttsKey = settingFromDb("volc_tts_api_key");
+  const ttsResourceId = settingFromDb("volc_tts_resource_id");
+  return {
+    userId: DEFAULT_USER_ID,
+    ark: {
+      apiKey: arkKey.value,
+      source: arkKey.source,
+      configured: Boolean(arkKey.value),
+      masked: maskSecret(arkKey.value),
+      model: arkModel.value || "doubao-seed-2-0-mini-260428",
+    },
+    tts: {
+      apiKey: ttsKey.value,
+      source: ttsKey.source,
+      configured: Boolean(ttsKey.value),
+      masked: maskSecret(ttsKey.value),
+      resourceId: ttsResourceId.value || "volc.service_type.10029",
+    },
+  };
+}
+
+function publicVolcengineSettings() {
+  const settings = volcengineSettings();
+  return {
+    userId: settings.userId,
+    ark: {
+      configured: settings.ark.configured,
+      masked: settings.ark.masked,
+      source: settings.ark.source,
+      model: settings.ark.model,
+    },
+    tts: {
+      configured: settings.tts.configured,
+      masked: settings.tts.masked,
+      source: settings.tts.source,
+      resourceId: settings.tts.resourceId,
+    },
+  };
+}
+
+function ttsTestSpeaker(resourceId) {
+  const id = String(resourceId || "").trim();
+  if (id === TTS_TEST_10029_RESOURCE_ID) return TTS_TEST_10029_SPEAKER;
+  return TTS_TEST_SEED_SPEAKER;
+}
+
+function ttsTestResourceId(resourceId) {
+  return String(resourceId || "").trim() || TTS_TEST_SEED_RESOURCE_ID;
+}
+
+function safeErrorMessage(error, secrets = []) {
+  let message = String(error?.message || error || "请求失败");
+  for (const secret of secrets) {
+    const text = String(secret || "").trim();
+    if (text) message = message.split(text).join("***");
+  }
+  return message;
 }
 
 function materialSourceRow(row) {
@@ -1356,7 +1469,8 @@ async function apiMaterialLibrary(req, res) {
 async function apiRewriteCopy(req, res) {
   try {
     const { text } = await readBody(req);
-    const rewritten = await rewriteCopy(text);
+    const settings = volcengineSettings();
+    const rewritten = await rewriteCopy(text, { apiKey: settings.ark.apiKey, model: settings.ark.model });
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
     res.end(JSON.stringify({ text: rewritten }));
   } catch (e) {
@@ -1368,10 +1482,21 @@ async function apiRewriteCopy(req, res) {
 async function apiTts(req, res) {
   try {
     const { text, speaker, resourceId, format = "mp3", sampleRate = 24000, speechRate = 0, loudnessRate = 0 } = await readBody(req);
+    const settings = volcengineSettings();
     const requestedFormat = String(format || "mp3").toLowerCase();
     const ext = ["mp3", "wav", "ogg", "aac"].includes(requestedFormat) ? requestedFormat : "mp3";
     const file = path.join(RUN, "tts", `tts_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`);
-    const result = await synthesizeSpeech({ text, speaker, resourceId, format: ext, sampleRate, speechRate, loudnessRate, outputPath: file });
+    const result = await synthesizeSpeech({
+      text,
+      speaker,
+      resourceId: resourceId || settings.tts.resourceId,
+      apiKey: settings.tts.apiKey,
+      format: ext,
+      sampleRate,
+      speechRate,
+      loudnessRate,
+      outputPath: file,
+    });
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
     res.end(JSON.stringify({
       ...result,
@@ -1380,6 +1505,92 @@ async function apiTts(req, res) {
   } catch (e) {
     res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
     res.end(e.message);
+  }
+}
+
+async function apiVolcengineSettings(req, res) {
+  try {
+    if (req.method === "POST") {
+      const {
+        arkApiKey,
+        arkModel,
+        ttsApiKey,
+        ttsResourceId,
+        clearArkApiKey = false,
+        clearTtsApiKey = false,
+      } = await readBody(req);
+      if (clearArkApiKey) writeAppSetting("volc_ark_api_key", "", { sensitive: true });
+      else if (String(arkApiKey || "").trim()) writeAppSetting("volc_ark_api_key", arkApiKey, { sensitive: true });
+      if (clearTtsApiKey) writeAppSetting("volc_tts_api_key", "", { sensitive: true });
+      else if (String(ttsApiKey || "").trim()) writeAppSetting("volc_tts_api_key", ttsApiKey, { sensitive: true });
+      writeAppSetting("volc_ark_model", arkModel || "doubao-seed-2-0-mini-260428");
+      writeAppSetting("volc_tts_resource_id", ttsResourceId || "volc.service_type.10029");
+    }
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify(publicVolcengineSettings()));
+  } catch (e) {
+    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.end(e.message);
+  }
+}
+
+async function apiVolcengineSettingsTest(req, res) {
+  const secrets = [];
+  try {
+    const {
+      target,
+    } = await readBody(req);
+    const settings = volcengineSettings();
+    const kind = String(target || "").trim();
+    if (kind === "ark") {
+      const apiKey = settings.ark.apiKey;
+      secrets.push(apiKey);
+      const result = await testArkConnection({
+        apiKey,
+        model: settings.ark.model,
+      });
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+      res.end(JSON.stringify({
+        target: "ark",
+        ok: true,
+        message: "AI 改写测试成功",
+        text: result.text,
+        usage: result.usage,
+      }));
+      return;
+    }
+    if (kind === "tts") {
+      const apiKey = settings.tts.apiKey;
+      const resourceId = ttsTestResourceId(settings.tts.resourceId);
+      const speaker = ttsTestSpeaker(resourceId);
+      secrets.push(apiKey);
+      const file = path.join(RUN, "tts", `tts_test_${Date.now()}_${Math.random().toString(16).slice(2)}.mp3`);
+      const result = await synthesizeSpeech({
+        text: TTS_TEST_TEXT,
+        speaker,
+        resourceId,
+        apiKey,
+        format: "mp3",
+        sampleRate: 24000,
+        outputPath: file,
+      });
+      await unlink(file).catch(() => {});
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+      res.end(JSON.stringify({
+        target: "tts",
+        ok: true,
+        message: "语音合成测试成功",
+        bytes: result.bytes,
+      }));
+      return;
+    }
+    throw new Error("未知测试类型");
+  } catch (e) {
+    res.writeHead(400, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({
+      ok: false,
+      message: safeErrorMessage(e, secrets),
+    }));
   }
 }
 
@@ -1396,6 +1607,9 @@ http
       if (req.method === "POST" && req.url === "/api/mix") return await apiMix(req, res);
       if (req.method === "POST" && req.url === "/api/rewrite-copy") return await apiRewriteCopy(req, res);
       if (req.method === "POST" && req.url === "/api/tts") return await apiTts(req, res);
+      if (req.method === "GET" && req.url === "/api/settings/volcengine") return await apiVolcengineSettings(req, res);
+      if (req.method === "POST" && req.url === "/api/settings/volcengine") return await apiVolcengineSettings(req, res);
+      if (req.method === "POST" && req.url === "/api/settings/volcengine/test") return await apiVolcengineSettingsTest(req, res);
       return await serveStatic(req, res);
     } catch (e) {
       res.writeHead(500);

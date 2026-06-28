@@ -304,6 +304,44 @@ export interface MaterialLibraryData {
   };
 }
 
+export interface VolcengineSettings {
+  userId: number;
+  ark: {
+    configured: boolean;
+    masked: string;
+    source: "db" | "none";
+    model: string;
+  };
+  tts: {
+    configured: boolean;
+    masked: string;
+    source: "db" | "none";
+    resourceId: string;
+  };
+}
+
+export interface SaveVolcengineSettingsParams {
+  arkApiKey?: string;
+  arkModel?: string;
+  ttsApiKey?: string;
+  ttsResourceId?: string;
+  clearArkApiKey?: boolean;
+  clearTtsApiKey?: boolean;
+}
+
+export interface TestVolcengineSettingsParams {
+  target: "ark" | "tts";
+}
+
+export interface TestVolcengineSettingsResult {
+  target?: "ark" | "tts";
+  ok: boolean;
+  message: string;
+  text?: string;
+  bytes?: number;
+  usage?: unknown;
+}
+
 export type SegmentEvent =
   | { type: "start"; clips: string[]; total: number }
   | { type: "segment_log"; msg: string }
@@ -590,6 +628,53 @@ export async function refreshMaterialLibrary(path = ""): Promise<MaterialLibrary
     throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
   }
   return readJson<MaterialLibraryData>(resp, "素材仓库刷新接口未返回数据");
+}
+
+export async function getVolcengineSettings(): Promise<VolcengineSettings> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/settings/volcengine");
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<VolcengineSettings>(resp, "火山引擎设置接口未返回数据");
+}
+
+export async function saveVolcengineSettings(params: SaveVolcengineSettingsParams): Promise<VolcengineSettings> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/settings/volcengine", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<VolcengineSettings>(resp, "火山引擎设置保存接口未返回数据");
+}
+
+export async function testVolcengineSettings(params: TestVolcengineSettingsParams): Promise<TestVolcengineSettingsResult> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/settings/volcengine/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  const text = await resp.text();
+  if (!text.trim()) throw new Error("火山引擎测试接口未返回数据");
+  let data: TestVolcengineSettingsResult;
+  try {
+    data = JSON.parse(text) as TestVolcengineSettingsResult;
+  } catch {
+    throw new Error(text.slice(0, 120));
+  }
+  if (!resp.ok || !data.ok) throw new Error(data.message || `测试失败：HTTP ${resp.status}`);
+  return data;
 }
 
 export async function saveExportRoot(path: string, remove = false): Promise<{ roots: string[] }> {

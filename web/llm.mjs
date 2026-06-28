@@ -1,8 +1,8 @@
 const ARK_RESPONSES_URL = "https://ark.cn-beijing.volces.com/api/v3/responses";
 const DEFAULT_MODEL = "doubao-seed-2-0-mini-260428";
 
-function apiKey() {
-  return process.env.ARK_API_KEY || process.env.VOLCENGINE_ARK_API_KEY || "";
+function apiKey(options = {}) {
+  return options.apiKey || "";
 }
 
 function outputTextFromResponse(data) {
@@ -40,7 +40,7 @@ async function requestRewrite(source, key, options = {}, retry = false) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: options.model || process.env.ARK_MODEL || DEFAULT_MODEL,
+      model: options.model || DEFAULT_MODEL,
       input: [
         {
           role: "user",
@@ -64,11 +64,47 @@ async function requestRewrite(source, key, options = {}, retry = false) {
   return rewritten;
 }
 
+export async function testArkConnection(options = {}) {
+  const key = apiKey(options);
+  if (!key) throw new Error("未配置火山 ARK API Key，请先在设置中填写");
+  const resp = await fetch(ARK_RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: options.model || DEFAULT_MODEL,
+      input: [
+        {
+          role: "user",
+          content: [{ type: "input_text", text: "这是连通性测试，请只输出 OK，不要解释。" }],
+        },
+      ],
+      max_output_tokens: 64,
+    }),
+  });
+  const raw = await resp.text();
+  if (!resp.ok) throw new Error(raw.trim() || `AI改写测试失败：HTTP ${resp.status}`);
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(`AI返回格式异常：${raw.slice(0, 120)}`);
+  }
+  const text = outputTextFromResponse(data);
+  if (!text) throw new Error("AI测试未返回内容");
+  return {
+    text,
+    usage: data.usage ?? null,
+  };
+}
+
 export async function rewriteCopy(text, options = {}) {
   const source = String(text || "").trim();
   if (!source) throw new Error("文案不能为空");
-  const key = apiKey();
-  if (!key) throw new Error("未配置 ARK_API_KEY");
+  const key = apiKey(options);
+  if (!key) throw new Error("未配置火山 ARK API Key，请先在设置中填写");
   const first = await requestRewrite(source, key, options);
   if (normalizedText(first) !== normalizedText(source)) return first;
   const second = await requestRewrite(source, key, options, true);

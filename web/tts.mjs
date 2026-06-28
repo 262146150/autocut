@@ -4,18 +4,9 @@ import path from "node:path";
 const TTS_URL = "https://openspeech.bytedance.com/api/v3/tts/unidirectional";
 const DEFAULT_RESOURCE_ID = "volc.service_type.10029";
 
-function authHeaders() {
-  const apiKey = process.env.TTS_API_KEY || process.env.BYTEDANCE_TTS_API_KEY || process.env.VOLC_TTS_API_KEY || "";
+function authHeaders(options = {}) {
+  const apiKey = options.apiKey || "";
   if (apiKey) return { "x-api-key": apiKey };
-
-  const appId = process.env.TTS_APP_ID || process.env.VOLC_TTS_APP_ID || "";
-  const accessKey = process.env.TTS_ACCESS_KEY || process.env.VOLC_TTS_ACCESS_KEY || "";
-  if (appId && accessKey) {
-    return {
-      "X-Api-App-Id": appId,
-      "X-Api-Access-Key": accessKey,
-    };
-  }
 
   return null;
 }
@@ -58,19 +49,20 @@ export async function synthesizeSpeech({
   sampleRate = 24000,
   speechRate = 0,
   loudnessRate = 0,
+  apiKey = "",
 }) {
   const source = String(text || "").trim();
   if (!source) throw new Error("合成文本不能为空");
   const voice = String(speaker || "").trim();
   if (!voice) throw new Error("请选择音色");
-  const auth = authHeaders();
-  if (!auth) throw new Error("未配置 TTS_API_KEY");
+  const auth = authHeaders({ apiKey });
+  if (!auth) throw new Error("未配置火山 TTS API Key，请先在设置中填写");
 
   const response = await fetch(TTS_URL, {
     method: "POST",
     headers: {
       ...auth,
-      "X-Api-Resource-Id": String(resourceId || process.env.TTS_RESOURCE_ID || DEFAULT_RESOURCE_ID).trim(),
+      "X-Api-Resource-Id": String(resourceId || DEFAULT_RESOURCE_ID).trim(),
       "X-Control-Require-Usage-Tokens-Return": "*",
       "Connection": "keep-alive",
       "Content-Type": "application/json",

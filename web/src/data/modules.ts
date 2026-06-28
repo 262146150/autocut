@@ -2,7 +2,7 @@
 
 export type IconName =
   | "spark" | "fx" | "arrow" | "layers" | "doc" | "flame"
-  | "caption" | "tag" | "image" | "poster" | "mic" | "video";
+  | "caption" | "tag" | "image" | "poster" | "mic" | "video" | "settings";
 
 export interface ModuleDef {
   id: string;
@@ -61,6 +61,25 @@ export const CATS: Record<string, ModuleDef[]> = {
 };
 
 export const ALL: ModuleDef[] = Object.values(CATS).flat();
+
+function moduleById(id: string) {
+  const mod = ALL.find((item) => item.id === id);
+  if (!mod) throw new Error(`Unknown module id: ${id}`);
+  return mod;
+}
+
+/** 左侧导航只保留混剪主链路，其他模块先留在总模块表中。 */
+export const NAV_CATS: Record<string, ModuleDef[]> = {
+  混剪生成: [
+    moduleById("ai-smart-mix"),
+    moduleById("interval-mix"),
+  ],
+  素材资产: [
+    moduleById("smart-segment"),
+    moduleById("material-library"),
+    moduleById("export-library"),
+  ],
+};
 
 /** 这些可用模块复用「混剪三栏」布局。 */
 export const MIX_LAYOUT_IDS = ["ai-smart-mix", "interval-mix", "category-mix", "live-clip", "video-effects"];
