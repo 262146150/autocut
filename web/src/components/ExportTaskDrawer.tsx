@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 export type ExportTaskItem = {
   id: string;
   name: string;
@@ -24,6 +26,7 @@ export function ExportTaskDrawer({
   manifest,
   items,
   summary,
+  confirmControls,
   confirmLabel = "确认生成",
   onConfirm,
   onClose,
@@ -37,6 +40,7 @@ export function ExportTaskDrawer({
   manifest?: string;
   items: ExportTaskItem[];
   summary?: Array<{ label: string; value: string }>;
+  confirmControls?: ReactNode;
   confirmLabel?: string;
   onConfirm?: () => void;
   onClose: () => void;
@@ -82,6 +86,7 @@ export function ExportTaskDrawer({
                 </label>
               ))}
             </div>
+            {confirmControls ? <div className="task-confirm-controls">{confirmControls}</div> : null}
           </div>
         ) : null}
 

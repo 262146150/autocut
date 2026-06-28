@@ -46,6 +46,21 @@ FFmpeg 继续负责最终合成：
 - 水印、去水印、调色、动态缩放等画面处理。
 - 按模式输出到批次目录和分组目录。
 
+导出分辨率默认使用 1080P 固定画布：竖屏 `1080x1920`，横屏 `1920x1080`。轻量模式可使用 720P：竖屏 `720x1280`，横屏 `1280x720`。不默认跟随原素材分辨率，因为批量混剪会混用不同尺寸素材，成片需要统一画布。
+
+编码器 MVP 阶段使用 `libx264`，保证 Windows、macOS Intel 和 macOS Apple Silicon 都能稳定导出。导出画质按档位调整 `crf/preset`：
+
+- 标准：`crf 23`，`preset veryfast`
+- 高清：`crf 20`，`preset fast`
+- 高质量：`crf 18`，`preset medium`
+
+后续 TODO：增加“导出加速”选项，自动探测硬件编码并失败回退 `libx264`：
+
+- macOS Intel / Apple Silicon：`h264_videotoolbox`
+- Windows NVIDIA：`h264_nvenc`
+- Windows Intel 核显：`h264_qsv`
+- Windows AMD：`h264_amf`
+
 ## Target Flow
 
 ```text

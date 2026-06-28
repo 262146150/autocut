@@ -81,6 +81,16 @@ export async function probeVideoSize(file) {
   }
 }
 
+function videoEncodeArgs(quality = "high") {
+  const presets = {
+    standard: { preset: "veryfast", crf: "23" },
+    high: { preset: "fast", crf: "20" },
+    best: { preset: "medium", crf: "18" },
+  };
+  const resolved = presets[quality] ?? presets.high;
+  return ["-c:v", "libx264", "-preset", resolved.preset, "-crf", resolved.crf];
+}
+
 /** 没素材时用 lavfi 造测试片，便于 demo。 */
 export async function makeTestClips(dir) {
   await mkdir(dir, { recursive: true });
@@ -132,7 +142,7 @@ async function processSegment(input, segOut, params, w, h, fps, options = {}) {
   }
   args.push("-filter_complex", filter, "-map", vmap);
   if (amap) args.push("-map", amap);
-  args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+  args.push(...videoEncodeArgs(options.exportQuality),
     "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000", "-shortest", "-f", "mpegts", segOut);
   await run(FFMPEG, args);
   return filter;
@@ -177,11 +187,11 @@ async function muxVoiceover(input, output, options = {}) {
     "-movflags", "+faststart", "-shortest", output]);
 }
 
-async function applyFinalSubtitle(input, output, subtitle, w, h, fps) {
+async function applyFinalSubtitle(input, output, subtitle, w, h, fps, options = {}) {
   const filter = subtitleGraph("0:v", "outv", { ...subtitle, canvasW: w, canvasH: h });
   await run(FFMPEG, ["-y", "-i", input,
     "-filter_complex", filter, "-map", "[outv]", "-map", "0:a?",
-    "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+    ...videoEncodeArgs(options.exportQuality),
     "-c:a", "copy", "-movflags", "+faststart", output]);
 }
 
@@ -291,6 +301,7 @@ export async function runMix({
   outputPrefix = "mix",
   outputStartIndex = 1,
   rotateClipOrder = false,
+  exportQuality = "high",
   asrCacheDir = null,
   onEvent = () => {},
 }) {
@@ -382,6 +393,7 @@ export async function runMix({
         subtitle,
         textOverlays,
         videoProcessing,
+        exportQuality,
         asrCacheDir,
         workDir,
         onEvent,
@@ -401,7 +413,7 @@ export async function runMix({
     let mediaForAudio = joined;
     if (finalSubtitle?.text || finalSubtitle?.frames?.length) {
       const subtitled = (bgmEnabled || voiceoverPath) ? path.join(segDir, "subtitled.mp4") : final;
-      await applyFinalSubtitle(joined, subtitled, finalSubtitle, w, h, fps);
+      await applyFinalSubtitle(joined, subtitled, finalSubtitle, w, h, fps, { exportQuality });
       mediaForAudio = subtitled;
     }
     if (voiceoverPath) {

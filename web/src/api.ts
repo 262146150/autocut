@@ -49,6 +49,7 @@ export interface MixParams {
   groupOutputs?: boolean;
   materialPaths?: string[];
   outputDir?: string;
+  exportQuality?: "standard" | "high" | "best";
 }
 
 export type SubtitleMode = "auto" | "off";

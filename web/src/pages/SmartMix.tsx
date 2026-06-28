@@ -19,6 +19,8 @@ type TextLayerKind = "subtitle" | "custom";
 type MixMode = "custom" | "copy" | "audio";
 type SmartMaterialMode = "raw" | "segments";
 type AspectRatioMode = "auto" | "9:16" | "16:9";
+type ExportResolution = "1080p" | "720p";
+type ExportQuality = "standard" | "high" | "best";
 type DraggingTextLayer = { kind: "subtitle" } | { kind: "custom"; id: string };
 type BoxTarget = { kind: "remove"; id: string } | { kind: "watermark" };
 type BoxDrag = {
@@ -178,6 +180,21 @@ function resolveAspectRatio(mode: AspectRatioMode, folderInfo: MaterialFolderInf
 
 function aspectRatioDisplay(mode: AspectRatioMode, resolved: "9:16" | "16:9") {
   return mode === "auto" ? `跟随素材方向（${resolved}）` : resolved;
+}
+
+function exportCanvas(resolvedAspectRatio: "9:16" | "16:9", resolution: ExportResolution) {
+  if (resolvedAspectRatio === "16:9") return resolution === "720p" ? "1280x720" : "1920x1080";
+  return resolution === "720p" ? "720x1280" : "1080x1920";
+}
+
+function exportResolutionLabel(resolution: ExportResolution, canvas: string) {
+  return `${resolution === "720p" ? "720P 轻量" : "1080P 高清"}（${canvas}）`;
+}
+
+function exportQualityLabel(quality: ExportQuality) {
+  if (quality === "best") return "高质量";
+  if (quality === "standard") return "标准";
+  return "高清";
 }
 
 function previewVolume(value: number) {
@@ -908,6 +925,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [allowReuse, setAllowReuse] = useState(false);
   const [groupOutputs, setGroupOutputs] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>("auto");
+  const [exportResolution, setExportResolution] = useState<ExportResolution>("1080p");
+  const [exportQuality, setExportQuality] = useState<ExportQuality>("high");
   const [fillMode, setFillMode] = useState<"blur" | "black">("blur");
   const [videoProcessing, setVideoProcessing] = useState(DEFAULT_VIDEO_PROCESSING);
   const [videoVolume, setVideoVolume] = useState(100);
@@ -941,7 +960,10 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const bgmMediaUrl = bgmPath.trim() ? localMediaUrl(bgmPath.trim()) : "";
   const bgmPreviewUrl = bgmEnabled ? bgmMediaUrl : "";
   const resolvedAspectRatio = resolveAspectRatio(aspectRatio, folderInfo);
+  const canvas = exportCanvas(resolvedAspectRatio, exportResolution);
   const aspectRatioSummary = aspectRatioDisplay(aspectRatio, resolvedAspectRatio);
+  const exportResolutionSummary = exportResolutionLabel(exportResolution, canvas);
+  const exportQualitySummary = exportQualityLabel(exportQuality);
   const addTaskLog = (message: string) => {
     void message;
   };
@@ -1422,7 +1444,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     const copyVoice = VOICE_SPEAKERS.find((voice) => voice.VoiceType === selectedVoiceType) ?? VOICE_SPEAKERS[0] ?? null;
     const params: MixParams = {
       inputs: inputFolder === "__TEST__" ? undefined : inputFolder,
-      canvas: resolvedAspectRatio === "16:9" ? "1920x1080" : "1080x1920",
+      canvas,
+      exportQuality,
       fillMode,
       out: mixMode === "copy"
         ? Math.max(1, validCopyItems.length * outCount)
@@ -1607,6 +1630,31 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     { label: "预计产出", value: `${plannedOutputs} 个视频` },
     { label: "输出方式", value: mixMode === "copy" ? (groupOutputs ? "按文案分类" : "不分类") : mixMode === "audio" ? (groupOutputs ? "按音频分类" : "不分类") : "按任务批次输出" },
   ];
+  const exportConfirmControls = (
+    <div className="drawer-export-settings">
+      <div className="drawer-setting-row">
+        <div>
+          <span>导出分辨率</span>
+          <b>{exportResolutionSummary}</b>
+        </div>
+        <div className="mini-seg compact">
+          <button className={exportResolution === "1080p" ? "active" : ""} type="button" onClick={() => setExportResolution("1080p")}>1080P</button>
+          <button className={exportResolution === "720p" ? "active" : ""} type="button" onClick={() => setExportResolution("720p")}>720P</button>
+        </div>
+      </div>
+      <div className="drawer-setting-row">
+        <div>
+          <span>导出画质</span>
+          <b>{exportQualitySummary}</b>
+        </div>
+        <div className="mini-seg compact">
+          <button className={exportQuality === "standard" ? "active" : ""} type="button" onClick={() => setExportQuality("standard")}>标准</button>
+          <button className={exportQuality === "high" ? "active" : ""} type="button" onClick={() => setExportQuality("high")}>高清</button>
+          <button className={exportQuality === "best" ? "active" : ""} type="button" onClick={() => setExportQuality("best")}>高质量</button>
+        </div>
+      </div>
+    </div>
+  );
   const folderName = folderInfo?.name ?? (folder ? folder.split("/").pop() || folder : "");
   const subtitleFont = SUBTITLE_FONTS[subtitleFontIndex] ?? SUBTITLE_FONTS[0];
   const previewSubtitleFontSize = Math.max(18, Math.round(subtitleFontSize * 0.46));
@@ -2322,6 +2370,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         exportDir={exportDir}
         items={taskItems}
         summary={awaitingExportConfirm ? exportSummary : undefined}
+        confirmControls={awaitingExportConfirm ? exportConfirmControls : undefined}
         confirmLabel="确认生成"
         onConfirm={awaitingExportConfirm ? onGenerate : undefined}
         onClose={() => setTaskOpen(false)}

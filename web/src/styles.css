@@ -2311,6 +2311,49 @@ input.inp {
   word-break: break-all;
 }
 
+.task-confirm-controls {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.drawer-export-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.drawer-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawer-setting-row>div:first-child {
+  min-width: 0;
+}
+
+.drawer-setting-row span {
+  display: block;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.drawer-setting-row b {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink2);
+  font-size: 12px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.drawer-setting-row .mini-seg {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 .task-section-h {
   display: flex;
   align-items: center;
