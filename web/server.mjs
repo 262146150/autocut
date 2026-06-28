@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { runMix, makeTestClips, collectClips, probeDuration, rm } from "../poc/pipeline.mjs";
 import { rewriteCopy } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
+import { buildSmartMaterialIndex, rankClipsForPrompt } from "./smart_match.mjs";
+import { buildSegmentLibrary } from "./segmenter.mjs";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dir, "dist");
@@ -228,6 +230,8 @@ async function apiMix(req, res) {
     fixedFirstPath = "",
     fixedFirstStartSec = 0,
     fixedFirstEndSec = 0,
+    smartMix = false,
+    groupOutputs = true,
     outputDir = "",
   } = await readBody(req);
   const [w, h] = canvas.split("x").map(Number);
@@ -243,11 +247,12 @@ async function apiMix(req, res) {
     let clips;
     if (inputs && existsSync(inputs)) {
       clips = await collectClips(inputs);
-      if (!clips.length) throw new Error("该目录没有视频素材");
+      if (!clips.length) throw new Error("该素材路径没有视频素材");
     } else {
       send({ type: "log", msg: "未提供有效素材目录，使用测试素材" });
       clips = await makeTestClips(path.join(workDir, "src"));
     }
+    const sourceClips = clips;
     const validCopyItems = Array.isArray(copyItems)
       ? copyItems.map((item, index) => ({
         id: String(item?.id || `copy-${index + 1}`),
@@ -279,17 +284,85 @@ async function apiMix(req, res) {
         throw new Error(`音频文件不存在：${validAudioItems[audioIndex].path}`);
       }
     }
-    const modeLabel = copyMode ? "文案模式" : audioMode ? "音频模式" : "自定义模式";
+    const segmentLibrary = smartMix
+      ? await buildSegmentLibrary(sourceClips, {
+        cacheDir: path.join(CACHE, "segments"),
+        targetSegmentSec: 12,
+        maxSegmentSec: 25,
+        detectFps: 12,
+        cutPaddingSec: 0.35,
+        speechProtection: true,
+        speechPadSec: 0.2,
+        speechMaxShiftSec: 1.5,
+        onEvent: send,
+      })
+      : null;
+    if (segmentLibrary) {
+      clips = segmentLibrary.segments.map((segment) => segment.path);
+      send({
+        type: "segment_library",
+        engine: segmentLibrary.engine,
+        targetEngine: segmentLibrary.targetEngine,
+        reused: Boolean(segmentLibrary.reused),
+        sourceClips: sourceClips.length,
+        segments: segmentLibrary.segments.length,
+        manifest: segmentLibrary.path,
+      });
+      send({
+        type: "log",
+        msg: segmentLibrary.reused
+          ? `智能分割：复用片段库 ${segmentLibrary.segments.length} 个片段`
+          : `智能分割：完成 ${segmentLibrary.segments.length} 个片段`,
+      });
+    }
+    const smartIndex = smartMix
+      ? await buildSmartMaterialIndex(clips, {
+        cacheDir: path.join(CACHE, "smart-index"),
+        onEvent: send,
+      })
+      : null;
+    if (smartIndex) {
+      send({
+        type: "smart_index",
+        engine: smartIndex.engine,
+        available: Boolean(smartIndex.onnx?.available),
+        reused: Boolean(smartIndex.reused),
+        indexedClips: smartIndex.clips.length,
+        reason: smartIndex.onnx?.reason || "",
+      });
+      send({
+        type: "log",
+        msg: smartIndex.reused
+          ? `智能索引：复用缓存 ${smartIndex.clips.length} 个素材`
+          : `智能索引：完成 ${smartIndex.clips.length} 个素材`,
+      });
+    }
+    const modeLabel = smartMix ? "AI智能混剪" : copyMode ? "文案模式" : audioMode ? "音频模式" : "自定义模式";
     const taskName = inputs && existsSync(inputs) ? path.basename(inputs) : "测试素材";
     const exportBatch = await createExportBatch({ outputDir, modeLabel, taskName });
     const manifest = {
       version: 1,
       createdAt: new Date().toISOString(),
-      mode: copyMode ? "copy" : audioMode ? "audio" : "custom",
+      mode: smartMix ? "smart" : copyMode ? "copy" : audioMode ? "audio" : "custom",
       modeLabel,
       source: {
         inputDir: inputs && existsSync(inputs) ? inputs : null,
-        materialCount: clips.length,
+        materialCount: sourceClips.length,
+        segmentLibrary: segmentLibrary ? {
+          engine: segmentLibrary.engine,
+          targetEngine: segmentLibrary.targetEngine,
+          path: segmentLibrary.path,
+          reused: segmentLibrary.reused,
+          sourceClips: sourceClips.length,
+          segments: segmentLibrary.segments.length,
+        } : null,
+        smartIndex: smartIndex ? {
+          engine: smartIndex.engine,
+          path: smartIndex.path,
+          reused: smartIndex.reused,
+          indexedClips: smartIndex.clips.length,
+          onnx: smartIndex.onnx ?? null,
+        } : null,
       },
       exportDir: exportBatch.batchDir,
       settings: {
@@ -320,6 +393,8 @@ async function apiMix(req, res) {
         fixedFirstPath,
         fixedFirstStartSec,
         fixedFirstEndSec,
+        smartMix,
+        groupOutputs,
       },
       groups: [],
     };
@@ -331,11 +406,13 @@ async function apiMix(req, res) {
       for (let copyIndex = 0; copyIndex < validCopyItems.length; copyIndex++) {
         const item = validCopyItems[copyIndex];
         const groupName = `文案${pad2(copyIndex + 1)}_${safeFilename(item.text, "文案", 18)}`;
-        const groupDir = path.join(exportBatch.batchDir, groupName);
+        const groupDir = groupOutputs ? path.join(exportBatch.batchDir, groupName) : exportBatch.batchDir;
+        const assetDir = groupOutputs ? groupDir : path.join(exportBatch.batchDir, "_assets", groupName);
         await mkdir(groupDir, { recursive: true });
-        await writeFile(path.join(groupDir, "copy.txt"), `${item.text}\n`);
+        await mkdir(assetDir, { recursive: true });
+        await writeFile(path.join(assetDir, "copy.txt"), `${item.text}\n`);
         send({ type: "log", msg: `合成文案 ${copyIndex + 1}/${validCopyItems.length} 语音…` });
-        const ttsFile = path.join(groupDir, "voice.mp3");
+        const ttsFile = path.join(assetDir, "voice.mp3");
         const tts = await synthesizeSpeech({
           text: item.text,
           speaker,
@@ -346,16 +423,28 @@ async function apiMix(req, res) {
         });
         const duration = await probeDuration(tts.path);
         if (!duration) throw new Error(`文案 ${copyIndex + 1} 语音时长读取失败`);
+        const smartMatch = smartMix ? await rankClipsForPrompt(clips, item.text, { index: smartIndex }) : null;
+        if (smartMatch) {
+          const topMatches = smartMatch.matches.slice(0, 3).map((match) => `${match.name}(${match.score})`).join("、");
+          send({
+            type: "smart_match",
+            itemType: "copy",
+            index: copyIndex + 1,
+            engine: smartMatch.engine,
+            matches: smartMatch.matches,
+          });
+          send({ type: "log", msg: `AI匹配文案 ${copyIndex + 1}：${topMatches || smartMatch.engine}` });
+        }
         send({ type: "log", msg: `文案 ${copyIndex + 1} 语音 ${duration.toFixed(1)} 秒，开始混剪…` });
         const results = await runMix({
-          clips,
+          clips: smartMatch?.clips ?? clips,
           w,
           h,
           out: variantsPerCopy,
           fps,
           outDir: groupDir,
           workDir: path.join(workDir, `copy_${pad2(copyIndex + 1)}`),
-          shuffleClips: shuffle,
+          shuffleClips: smartMix ? false : shuffle,
           materialCount: 0,
           allowReuse: allowMaterialReuse,
           clipStartSec,
@@ -377,7 +466,8 @@ async function apiMix(req, res) {
           fixedFirstPath,
           fixedFirstStartSec,
           fixedFirstEndSec,
-          outputPrefix: "成片",
+          outputPrefix: groupOutputs ? "成片" : `文案${pad2(copyIndex + 1)}_成片`,
+          rotateClipOrder: Boolean(smartMatch),
           asrCacheDir,
           onEvent: (e) => {
             if (e.type === "segment") return send({ ...e, output: outputBase + e.output, total: totalOut });
@@ -391,8 +481,10 @@ async function apiMix(req, res) {
           index: copyIndex + 1,
           name: groupName,
           dir: groupDir,
+          assetDir,
           text: item.text,
           voice: { path: tts.path, durationSec: duration, speaker, resourceId, name: copyVoice?.name || "" },
+          smartMatch,
           outputs: results.map((p) => ({ file: path.basename(p), path: p, url: runFileUrl(p) })),
         });
         outputBase += variantsPerCopy;
@@ -409,24 +501,39 @@ async function apiMix(req, res) {
       for (let audioIndex = 0; audioIndex < validAudioItems.length; audioIndex++) {
         const item = validAudioItems[audioIndex];
         const groupName = `音频${pad2(audioIndex + 1)}_${mediaTitle(item.name || item.path, "音频")}`;
-        const groupDir = path.join(exportBatch.batchDir, groupName);
+        const groupDir = groupOutputs ? path.join(exportBatch.batchDir, groupName) : exportBatch.batchDir;
+        const assetDir = groupOutputs ? groupDir : path.join(exportBatch.batchDir, "_assets", groupName);
         await mkdir(groupDir, { recursive: true });
-        await writeFile(path.join(groupDir, "audio.txt"), [
+        await mkdir(assetDir, { recursive: true });
+        await writeFile(path.join(assetDir, "audio.txt"), [
           `source=${item.path}`,
           item.text ? `subtitle=${item.text}` : "",
         ].filter(Boolean).join("\n") + "\n");
         const duration = await probeDuration(item.path);
         if (!duration) throw new Error(`音频 ${audioIndex + 1} 时长读取失败`);
+        const matchPrompt = item.text || item.name || path.basename(item.path);
+        const smartMatch = smartMix ? await rankClipsForPrompt(clips, matchPrompt, { index: smartIndex }) : null;
+        if (smartMatch) {
+          const topMatches = smartMatch.matches.slice(0, 3).map((match) => `${match.name}(${match.score})`).join("、");
+          send({
+            type: "smart_match",
+            itemType: "audio",
+            index: audioIndex + 1,
+            engine: smartMatch.engine,
+            matches: smartMatch.matches,
+          });
+          send({ type: "log", msg: `AI匹配音频 ${audioIndex + 1}：${topMatches || smartMatch.engine}` });
+        }
         send({ type: "log", msg: `音频 ${audioIndex + 1}/${validAudioItems.length} ${duration.toFixed(1)} 秒，开始混剪…` });
         const results = await runMix({
-          clips,
+          clips: smartMatch?.clips ?? clips,
           w,
           h,
           out: variantsPerAudio,
           fps,
           outDir: groupDir,
           workDir: path.join(workDir, `audio_${pad2(audioIndex + 1)}`),
-          shuffleClips: shuffle,
+          shuffleClips: smartMix ? false : shuffle,
           materialCount: 0,
           allowReuse: allowMaterialReuse,
           clipStartSec,
@@ -448,7 +555,8 @@ async function apiMix(req, res) {
           fixedFirstPath,
           fixedFirstStartSec,
           fixedFirstEndSec,
-          outputPrefix: "成片",
+          outputPrefix: groupOutputs ? "成片" : `音频${pad2(audioIndex + 1)}_成片`,
+          rotateClipOrder: Boolean(smartMatch),
           asrCacheDir,
           onEvent: (e) => {
             if (e.type === "segment") return send({ ...e, output: outputBase + e.output, total: totalOut });
@@ -462,9 +570,11 @@ async function apiMix(req, res) {
           index: audioIndex + 1,
           name: groupName,
           dir: groupDir,
+          assetDir,
           sourceAudio: item.path,
           subtitleText: item.text,
           durationSec: duration,
+          smartMatch,
           outputs: results.map((p) => ({ file: path.basename(p), path: p, url: runFileUrl(p) })),
         });
         outputBase += variantsPerAudio;
@@ -527,9 +637,10 @@ async function apiMaterials(req, res) {
   res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
   try {
     if (!inputs || !existsSync(inputs)) {
-      throw new Error("素材目录不存在");
+      throw new Error("素材路径不存在");
     }
     const clips = await collectClips(inputs);
+    if (!clips.length) throw new Error("该素材路径没有视频素材");
     res.end(JSON.stringify({
       valid: true,
       path: inputs,
@@ -544,6 +655,65 @@ async function apiMaterials(req, res) {
   } catch (e) {
     res.end(JSON.stringify({ valid: false, msg: e.message }));
   }
+}
+
+async function apiSegments(req, res) {
+  const {
+    inputs,
+    threshold = 0.35,
+    minDurationSec = 1.2,
+    targetSegmentSec = 12,
+    maxSegmentSec = 25,
+    detectFps = 12,
+    cutPaddingSec = 0.35,
+    speechProtection = true,
+    speechPadSec = 0.2,
+    speechMaxShiftSec = 1.5,
+    force = false,
+    outputDir = "",
+  } = await readBody(req);
+  res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
+  const send = (o) => res.write(JSON.stringify(o) + "\n");
+  try {
+    if (!inputs || !existsSync(inputs)) throw new Error("素材路径不存在");
+    const clips = await collectClips(inputs);
+    if (!clips.length) throw new Error("该素材路径没有视频素材");
+    const exportBatch = await createExportBatch({
+      outputDir,
+      modeLabel: "智能分割",
+      taskName: path.basename(inputs),
+    });
+    send({ type: "start", clips: clips.map((clip) => path.basename(clip)), total: clips.length });
+    const library = await buildSegmentLibrary(clips, {
+      libraryDir: exportBatch.batchDir,
+      threshold,
+      minDurationSec,
+      targetSegmentSec,
+      maxSegmentSec,
+      detectFps,
+      cutPaddingSec,
+      speechProtection,
+      speechPadSec,
+      speechMaxShiftSec,
+      force,
+      onEvent: send,
+    });
+    send({
+      type: "done",
+      engine: library.engine,
+      targetEngine: library.targetEngine,
+      reused: Boolean(library.reused),
+      manifest: library.path,
+      exportDir: exportBatch.batchDir,
+      segments: library.segments.map((segment) => ({
+        ...segment,
+        url: `/api/media?path=${encodeURIComponent(segment.path)}`,
+      })),
+    });
+  } catch (e) {
+    send({ type: "error", msg: e.message });
+  }
+  res.end();
 }
 
 async function apiMedia(req, res) {
@@ -593,6 +763,7 @@ http
     try {
       if ((req.method === "GET" || req.method === "HEAD") && req.url.startsWith("/api/media")) return await apiMedia(req, res);
       if (req.method === "POST" && req.url === "/api/materials") return await apiMaterials(req, res);
+      if (req.method === "POST" && req.url === "/api/segments") return await apiSegments(req, res);
       if (req.method === "POST" && req.url === "/api/mix") return await apiMix(req, res);
       if (req.method === "POST" && req.url === "/api/rewrite-copy") return await apiRewriteCopy(req, res);
       if (req.method === "POST" && req.url === "/api/tts") return await apiTts(req, res);

@@ -1,6 +1,6 @@
 // pipeline.mjs — 混剪核心管线（CLI 与 Web 后端共用的唯一真源）
 import { spawn } from "node:child_process";
-import { mkdir, writeFile, readdir, rm } from "node:fs/promises";
+import { mkdir, writeFile, readdir, rm, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { buildClipFilterComplex, subtitleGraph } from "./filters.mjs";
@@ -169,6 +169,12 @@ function shuffled(items) {
   return next;
 }
 
+function rotated(items, offset) {
+  if (!items.length) return [];
+  const start = ((offset % items.length) + items.length) % items.length;
+  return [...items.slice(start), ...items.slice(0, start)];
+}
+
 function resolveMaterialCount(materialCount, total) {
   const n = Math.floor(Number(materialCount ?? 0));
   if (!Number.isFinite(n) || n <= 0) return total;
@@ -255,6 +261,7 @@ export async function runMix({
   fixedFirstEndSec = 0,
   outputPrefix = "mix",
   outputStartIndex = 1,
+  rotateClipOrder = false,
   asrCacheDir = null,
   onEvent = () => {},
 }) {
@@ -287,10 +294,11 @@ export async function runMix({
   let remaining = shuffleClips ? shuffled(selectableClips) : [...selectableClips];
   for (let idx = 0; idx < out; idx++) {
     let clipOrder;
+    const outputClips = rotateClipOrder ? rotated(selectableClips, idx) : selectableClips;
     if (targetDurationSec > 0 && resolveMaterialCount(materialCount, 0) === 0) {
       const fixedDuration = fixedFirst ? await effectiveClipDuration(fixedFirst.path, fixedFirst, durationCache) : 0;
       const remainingDuration = Math.max(0, targetDurationSec - fixedDuration);
-      clipOrder = remainingDuration > 0 ? await pickForDuration(selectableClips, remainingDuration, {
+      clipOrder = remainingDuration > 0 ? await pickForDuration(outputClips, remainingDuration, {
         clipStartSec,
         clipEndSec,
         shuffleClips,
@@ -298,8 +306,8 @@ export async function runMix({
       }, durationCache) : [];
     } else if (allowReuse) {
       const count = fixedFirstInClips ? Math.max(0, perOutput - 1) : perOutput;
-      if (count > 0 && !selectableClips.length) throw new Error("固定首素材之外没有可用素材");
-      clipOrder = repeatPick(selectableClips, count, shuffleClips);
+      if (count > 0 && !outputClips.length) throw new Error("固定首素材之外没有可用素材");
+      clipOrder = repeatPick(outputClips, count, shuffleClips);
     } else {
       const count = fixedFirstInClips ? Math.max(0, perOutput - 1) : perOutput;
       if (remaining.length < count) {
@@ -364,10 +372,30 @@ export async function runMix({
   return results;
 }
 
-/** 收集目录下的视频素材。 */
-export async function collectClips(dir) {
-  const ents = await readdir(dir);
-  return ents.filter((f) => /\.(mp4|mov|mkv|webm|avi)$/i.test(f)).map((f) => path.join(dir, f));
+function isVideoFile(file) {
+  return /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(file);
+}
+
+/** 收集目录或单个文件中的视频素材。 */
+export async function collectClips(input) {
+  const info = await stat(input);
+  if (info.isFile()) return isVideoFile(input) ? [input] : [];
+
+  const out = [];
+  async function walk(current) {
+    const ents = await readdir(current, { withFileTypes: true });
+    for (const ent of ents) {
+      if (ent.name.startsWith(".")) continue;
+      const file = path.join(current, ent.name);
+      if (ent.isDirectory()) {
+        await walk(file);
+      } else if (isVideoFile(ent.name)) {
+        out.push(file);
+      }
+    }
+  }
+  await walk(input);
+  return out.sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
 }
 
 export { rm };

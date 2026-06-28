@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "engine": "sherpa-onnx-silero-vad",
+  "model": "silero_vad.onnx",
+  "sampleRate": 16000,
+  "threshold": 0.5,
+  "minSilenceDuration": 0.35,
+  "minSpeechDuration": 0.15,
+  "maxSpeechDuration": 20,
+  "windowSize": 512,
+  "provider": "cpu",
+  "numThreads": 1,
+  "source": {
+    "repo": "R4kSo1997/sherpa-onnx-silero-vad-v5",
+    "file": "silero_vad.onnx"
+  }
+}

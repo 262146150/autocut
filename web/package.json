@@ -8,12 +8,17 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "server": "node server.mjs",
-    "dev:all": "node server.mjs & vite"
+    "dev:all": "node server.mjs & vite",
+    "models:smart": "node scripts/download-smart-onnx.mjs",
+    "models:transnet": "node scripts/download-transnetv2-onnx.mjs",
+    "models:vad": "node scripts/download-sherpa-vad.mjs"
   },
   "dependencies": {
+    "onnxruntime-node": "^1.27.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "sherpa-onnx-node": "^1.13.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

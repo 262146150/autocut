@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "engine": "transnetv2-onnx",
+  "executionProviders": ["cpu"],
+  "model": "transnetv2.onnx",
+  "inputName": "input",
+  "singleOutputName": "534",
+  "manyHotOutputName": "535",
+  "threshold": 0.5,
+  "detectFps": 12,
+  "input": {
+    "shape": [1, 100, 27, 48, 3],
+    "dtype": "float32",
+    "color": "rgb",
+    "frameSize": [48, 27]
+  },
+  "source": {
+    "package": "@azstorm/lightcut-transnetv2@1.0.0",
+    "license": "MIT",
+    "sha256": "c4d54a682bace32f25136ef83ca2c9d403e8f8193775efeb995172a0d95a8e0c"
+  }
+}

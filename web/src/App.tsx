@@ -2,6 +2,7 @@
 import { NavLink, Routes, Route, useParams, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import SmartMix from "./pages/SmartMix";
+import SmartSegment from "./pages/SmartSegment";
 import Stub from "./pages/Stub";
 import { ALL, CATS, MIX_LAYOUT_IDS, type ModuleDef } from "./data/modules";
 import { Icon } from "./components/Icons";
@@ -10,6 +11,7 @@ function ModulePage() {
   const { id } = useParams();
   const mod = ALL.find((m) => m.id === id);
   if (!mod || !mod.ready) return <Navigate to="/" replace />;
+  if (mod.id === "smart-segment") return <SmartSegment mod={mod} />;
   return MIX_LAYOUT_IDS.includes(mod.id) ? <SmartMix mod={mod} /> : <Stub mod={mod} />;
 }
 

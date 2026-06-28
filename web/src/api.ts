@@ -37,6 +37,8 @@ export interface MixParams {
   fixedFirstPath?: string;
   fixedFirstStartSec?: number;
   fixedFirstEndSec?: number;
+  smartMix?: boolean;
+  groupOutputs?: boolean;
   materialPaths?: string[];
   outputDir?: string;
 }
@@ -174,6 +176,43 @@ export interface SubtitleFrame {
   confidence?: number;
 }
 
+export interface SmartMatchItem {
+  name: string;
+  score: number;
+  reason: string;
+  lexicalScore?: number;
+  vectorScore?: number;
+  durationSec?: number;
+}
+
+export interface SegmentClip {
+  id: string;
+  name: string;
+  path: string;
+  url: string;
+  sourcePath: string;
+  sourceName: string;
+  startSec: number;
+  endSec: number;
+  durationSec: number;
+}
+
+export type SegmentEvent =
+  | { type: "start"; clips: string[]; total: number }
+  | { type: "segment_log"; msg: string }
+  | { type: "segment_file"; index: number; total: number; name: string; durationSec: number }
+  | { type: "segment_done"; index: number; name: string; sourceName: string; startSec: number; endSec: number; durationSec: number; path: string }
+  | { type: "error"; msg: string }
+  | {
+    type: "done";
+    engine: string;
+    targetEngine?: string;
+    reused: boolean;
+    manifest: string;
+    exportDir?: string;
+    segments: SegmentClip[];
+  };
+
 export interface DedupParams {
   hflip: boolean;
   vflip: boolean;
@@ -191,6 +230,30 @@ export type MixEvent =
   | { type: "segment"; output: number; total: number; seg: number; params: DedupParams; filter?: string }
   | { type: "output_done"; output: number; total: number; path: string }
   | { type: "log"; msg: string }
+  | {
+    type: "smart_index";
+    engine: string;
+    available: boolean;
+    reused: boolean;
+    indexedClips: number;
+    reason?: string;
+  }
+  | {
+    type: "smart_match";
+    itemType: "copy" | "audio";
+    index: number;
+    engine: string;
+    matches: SmartMatchItem[];
+  }
+  | {
+    type: "segment_library";
+    engine: string;
+    targetEngine?: string;
+    reused: boolean;
+    sourceClips: number;
+    segments: number;
+    manifest: string;
+  }
   | { type: "error"; msg: string }
   | { type: "done"; outputs: string[]; exportDir?: string; manifest?: string };
 
@@ -281,6 +344,53 @@ export async function mix(params: MixParams, onEvent: (e: MixEvent) => void): Pr
       const line = buf.slice(0, nl).trim();
       buf = buf.slice(nl + 1);
       if (line) onEvent(JSON.parse(line) as MixEvent);
+    }
+  }
+}
+
+export async function segmentMaterials(
+  params: {
+    inputs: string;
+    threshold?: number;
+    minDurationSec?: number;
+    targetSegmentSec?: number;
+    maxSegmentSec?: number;
+    detectFps?: number;
+    cutPaddingSec?: number;
+    speechProtection?: boolean;
+    speechPadSec?: number;
+    speechMaxShiftSec?: number;
+    force?: boolean;
+    outputDir?: string;
+  },
+  onEvent: (e: SegmentEvent) => void,
+): Promise<void> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/segments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  if (!resp.ok || !resp.body) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(text.trim() || "智能分割接口无响应，请确认 `node server.mjs` 正在运行");
+  }
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (line) onEvent(JSON.parse(line) as SegmentEvent);
     }
   }
 }

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "engine": "onnx-clip-v1",
+  "executionProviders": ["cpu"],
+  "imageModel": "image_model.onnx",
+  "textModel": "text_model.onnx",
+  "vocab": "vocab.txt",
+  "image": {
+    "inputName": "pixel_values",
+    "outputName": "image_embeds",
+    "size": 224,
+    "layout": "NCHW",
+    "mean": [0.48145466, 0.4578275, 0.40821073],
+    "std": [0.26862954, 0.26130258, 0.27577711]
+  },
+  "text": {
+    "inputIdsName": "input_ids",
+    "attentionMaskName": "attention_mask",
+    "tokenTypeIdsName": "token_type_ids",
+    "outputName": "text_embeds",
+    "maxLength": 52,
+    "clsToken": "[CLS]",
+    "sepToken": "[SEP]",
+    "padToken": "[PAD]",
+    "unkToken": "[UNK]"
+  }
+}

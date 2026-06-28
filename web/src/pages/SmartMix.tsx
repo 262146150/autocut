@@ -1,7 +1,7 @@
 // SmartMix.tsx — AI 智能混剪三栏页（按截图复刻 + 接后端混剪管线）
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ModuleDef } from "../data/modules";
-import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MixParams, type PercentRect, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
+import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
 import { Group, Field, Slider } from "../components/controls";
 import { DEFAULT_VIDEO_PROCESSING, VideoProcessingSettings } from "../components/VideoProcessingSettings";
 import voiceRaw from "../../voice.json?raw";
@@ -50,6 +50,27 @@ type AudioItem = {
   path: string;
   text: string;
   name: string;
+};
+type SmartIndexState = {
+  engine: string;
+  available: boolean;
+  reused: boolean;
+  indexedClips: number;
+  reason?: string;
+};
+type SmartMatchState = {
+  key: string;
+  label: string;
+  engine: string;
+  matches: SmartMatchItem[];
+};
+type SegmentLibraryState = {
+  engine: string;
+  targetEngine?: string;
+  reused: boolean;
+  sourceClips: number;
+  segments: number;
+  manifest: string;
 };
 type VoiceSpeaker = {
   ID: string;
@@ -368,6 +389,8 @@ function FolderMixSettings({
   setCopySubtitleEnabled,
   audioSubtitleEnabled,
   setAudioSubtitleEnabled,
+  groupOutputs,
+  setGroupOutputs,
   fixedFirstEnabled,
   setFixedFirstEnabled,
   fixedFirstPath,
@@ -376,6 +399,7 @@ function FolderMixSettings({
   setFixedFirstStartSec,
   fixedFirstEndSec,
   setFixedFirstEndSec,
+  smartOnly = false,
 }: {
   mixMode: MixMode;
   setMixMode: (value: MixMode) => void;
@@ -397,6 +421,8 @@ function FolderMixSettings({
   setCopySubtitleEnabled: (value: boolean) => void;
   audioSubtitleEnabled: boolean;
   setAudioSubtitleEnabled: (value: boolean) => void;
+  groupOutputs: boolean;
+  setGroupOutputs: (value: boolean) => void;
   fixedFirstEnabled: boolean;
   setFixedFirstEnabled: (value: boolean) => void;
   fixedFirstPath: string;
@@ -405,6 +431,7 @@ function FolderMixSettings({
   setFixedFirstStartSec: (value: number) => void;
   fixedFirstEndSec: number;
   setFixedFirstEndSec: (value: number) => void;
+  smartOnly?: boolean;
 }) {
   const chooseFixedFirst = () => {
     const next = prompt("输入固定首素材视频路径", fixedFirstPath);
@@ -419,7 +446,7 @@ function FolderMixSettings({
       <div className="folder-setting-row">
         <span>混剪模式</span>
         <div className="mini-seg">
-          <TogglePill active={mixMode === "custom"} onClick={() => setMixMode("custom")}>自定义</TogglePill>
+          {!smartOnly ? <TogglePill active={mixMode === "custom"} onClick={() => setMixMode("custom")}>自定义</TogglePill> : null}
           <TogglePill active={mixMode === "copy"} onClick={() => setMixMode("copy")}>文案模式</TogglePill>
           <TogglePill active={mixMode === "audio"} onClick={() => setMixMode("audio")}>音频模式</TogglePill>
         </div>
@@ -483,10 +510,16 @@ function FolderMixSettings({
       </div>
       <div className="folder-setting-row">
         <span>视频输出方式</span>
-        <div className="mini-seg compact">
-          <TogglePill active>按文案分类</TogglePill>
-          <TogglePill>不分类</TogglePill>
-        </div>
+        {mixMode === "copy" || mixMode === "audio" ? (
+          <div className="mini-seg compact">
+            <TogglePill active={groupOutputs} onClick={() => setGroupOutputs(true)}>
+              {mixMode === "copy" ? "按文案分类" : "按音频分类"}
+            </TogglePill>
+            <TogglePill active={!groupOutputs} onClick={() => setGroupOutputs(false)}>不分类</TogglePill>
+          </div>
+        ) : (
+          <div className="range-inline muted">按任务批次输出</div>
+        )}
       </div>
       <div className="fixed-material">
         <div className="folder-setting-row">
@@ -512,6 +545,70 @@ function FolderMixSettings({
         </div>
       </div>
       <button className="apply-all" type="button" disabled>应用到全部文件夹</button>
+    </div>
+  );
+}
+
+function SmartMatchStatusPanel({
+  segmentLibrary,
+  index,
+  matches,
+}: {
+  segmentLibrary: SegmentLibraryState | null;
+  index: SmartIndexState | null;
+  matches: SmartMatchState[];
+}) {
+  const topMatches = matches.slice(-3).reverse();
+  return (
+    <div className="smart-status-panel">
+      <div className="smart-status-h">
+        <b>智能匹配</b>
+        <span className={index?.available ? "ok" : "warn"}>
+          {index ? (index.available ? "ONNX已启用" : "本地索引") : "等待生成"}
+        </span>
+      </div>
+      {segmentLibrary ? (
+        <div className="smart-status-meta">
+          <span title={segmentLibrary.manifest}>片段库 {segmentLibrary.segments} 个</span>
+          <span>{segmentLibrary.reused ? "复用分割" : "新建分割"}</span>
+          <span title={segmentLibrary.engine}>{segmentLibrary.engine}</span>
+        </div>
+      ) : null}
+      {index ? (
+        <div className="smart-status-meta">
+          <span title={index.engine}>{index.engine}</span>
+          <span>{index.reused ? "复用缓存" : "新建索引"}</span>
+          <span>{index.indexedClips} 个素材</span>
+        </div>
+      ) : (
+        <div className="smart-status-meta">
+          <span>开始生成后会分析素材并按文案/音频匹配画面</span>
+        </div>
+      )}
+      {index && !index.available && index.reason ? (
+        <div className="smart-status-reason" title={index.reason}>{index.reason}</div>
+      ) : null}
+      {topMatches.length ? (
+        <div className="smart-match-list">
+          {topMatches.map((group) => (
+            <div className="smart-match-group" key={group.key}>
+              <div className="smart-match-title">
+                <span>{group.label}</span>
+                <em title={group.engine}>{group.engine}</em>
+              </div>
+              <div className="smart-match-items">
+                {group.matches.slice(0, 3).map((match) => (
+                  <div className="smart-match-item" key={`${group.key}-${match.name}`}>
+                    <span title={match.name}>{match.name}</span>
+                    <strong>{match.score.toFixed(3)}</strong>
+                    <i>{match.reason}</i>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -629,6 +726,7 @@ function VoicePickerModal({
 }
 
 export default function SmartMix({ mod }: { mod: ModuleDef }) {
+  const isSmartMixModule = mod.id === "ai-smart-mix";
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewBgmRef = useRef<HTMLAudioElement | null>(null);
   const speechAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -641,7 +739,10 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [status, setStatus] = useState("");
   const [outputs, setOutputs] = useState<string[]>([]);
   const [exportDir, setExportDir] = useState("");
-  const [mixMode, setMixMode] = useState<MixMode>("custom");
+  const [segmentLibraryState, setSegmentLibraryState] = useState<SegmentLibraryState | null>(null);
+  const [smartIndexState, setSmartIndexState] = useState<SmartIndexState | null>(null);
+  const [smartMatchStates, setSmartMatchStates] = useState<SmartMatchState[]>([]);
+  const [mixMode, setMixMode] = useState<MixMode>(isSmartMixModule ? "copy" : "custom");
   const [copyItems, setCopyItems] = useState<CopyItem[]>([{ id: "copy-1", text: "" }]);
   const [activeCopyId, setActiveCopyId] = useState("copy-1");
   const [audioItems, setAudioItems] = useState<AudioItem[]>([]);
@@ -659,6 +760,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [fixedFirstEndSec, setFixedFirstEndSec] = useState(0);
   const [shuffle, setShuffle] = useState(true);
   const [allowReuse, setAllowReuse] = useState(false);
+  const [groupOutputs, setGroupOutputs] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<"9:16" | "16:9">("9:16");
   const [fillMode, setFillMode] = useState<"blur" | "black">("blur");
   const [videoProcessing, setVideoProcessing] = useState(DEFAULT_VIDEO_PROCESSING);
@@ -689,6 +791,10 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
 
   const bgmMediaUrl = bgmPath.trim() ? localMediaUrl(bgmPath.trim()) : "";
   const bgmPreviewUrl = bgmEnabled ? bgmMediaUrl : "";
+
+  useEffect(() => {
+    if (isSmartMixModule && mixMode === "custom") setMixMode("copy");
+  }, [isSmartMixModule, mixMode]);
 
   useEffect(() => {
     if (previewVideoRef.current) previewVideoRef.current.volume = previewVolume(videoVolume);
@@ -751,6 +857,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setSelectedClip(null);
     setOutputs([]);
     setProgress(0);
+    setSegmentLibraryState(null);
+    setSmartIndexState(null);
+    setSmartMatchStates([]);
     setStatus("正在读取素材文件夹…");
     try {
       const info = await inspectMaterials(nextFolder);
@@ -769,6 +878,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setSelectedClip(null);
     setOutputs([]);
     setProgress(0);
+    setSegmentLibraryState(null);
+    setSmartIndexState(null);
+    setSmartMatchStates([]);
     setStatus("");
   };
 
@@ -1087,6 +1199,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setOutputs([]);
     setExportDir("");
     setProgress(0);
+    setSegmentLibraryState(null);
+    setSmartIndexState(null);
+    setSmartMatchStates([]);
     setStatus(mixMode === "copy" ? "自动合成语音并生成中…" : mixMode === "audio" ? "按音频时长生成中…" : "生成中…");
     let clipsPerOutput = Math.max(folderInfo?.count ?? 1, 1);
     const subtitleFont = SUBTITLE_FONTS[subtitleFontIndex] ?? SUBTITLE_FONTS[0];
@@ -1167,6 +1282,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       fixedFirstEndSec,
       textOverlays,
       videoProcessing,
+      smartMix: isSmartMixModule,
+      groupOutputs,
     };
     try {
       await mix(params, (e) => {
@@ -1179,6 +1296,35 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         }
         else if (e.type === "output_done") setStatus(`已完成 ${e.output}/${e.total}`);
         else if (e.type === "log") setStatus(e.msg);
+        else if (e.type === "segment_library") {
+          setSegmentLibraryState({
+            engine: e.engine,
+            targetEngine: e.targetEngine,
+            reused: e.reused,
+            sourceClips: e.sourceClips,
+            segments: e.segments,
+            manifest: e.manifest,
+          });
+          setStatus(e.reused ? `复用片段库：${e.segments} 个片段` : `智能分割完成：${e.segments} 个片段`);
+        }
+        else if (e.type === "smart_index") {
+          setSmartIndexState({
+            engine: e.engine,
+            available: e.available,
+            reused: e.reused,
+            indexedClips: e.indexedClips,
+            reason: e.reason,
+          });
+          setStatus(e.available ? `ONNX匹配已启用：${e.engine}` : "ONNX不可用，已降级为本地索引匹配");
+        }
+        else if (e.type === "smart_match") {
+          const key = `${e.itemType}-${e.index}`;
+          const label = `${e.itemType === "copy" ? "文案" : "音频"} ${e.index}`;
+          setSmartMatchStates((items) => {
+            const next = items.filter((item) => item.key !== key);
+            return [...next, { key, label, engine: e.engine, matches: e.matches }];
+          });
+        }
         else if (e.type === "error") setStatus("失败：" + e.msg);
         else if (e.type === "done") {
           setProgress(100);
@@ -1272,7 +1418,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       <div className="modbar">
         <div className="mod-title">
           <b>{mod.name}</b>
-          <span>{mixMode === "copy" ? "文案模式" : mixMode === "audio" ? "音频模式" : "自定义模式"}</span>
+          <span>{isSmartMixModule ? "智能匹配 · " : ""}{mixMode === "copy" ? "文案模式" : mixMode === "audio" ? "音频模式" : "自定义模式"}</span>
         </div>
       </div>
       <div className="mod">
@@ -1299,7 +1445,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                   {!folderInfo ? (
                     <div className="clip-row muted">正在读取素材…</div>
                   ) : folderInfo.clips.length ? (
-                    folderInfo.clips.slice(0, 12).map((clip) => (
+                    folderInfo.clips.map((clip) => (
                       <button
                         className={`clip-row ${selectedClip?.path === clip.path ? "active" : ""}`}
                         key={clip.path || clip.name}
@@ -1751,6 +1897,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               setCopySubtitleEnabled={setCopySubtitleEnabled}
               audioSubtitleEnabled={audioSubtitleEnabled}
               setAudioSubtitleEnabled={setAudioSubtitleEnabled}
+              groupOutputs={groupOutputs}
+              setGroupOutputs={setGroupOutputs}
               fixedFirstEnabled={fixedFirstEnabled}
               setFixedFirstEnabled={setFixedFirstEnabled}
               fixedFirstPath={fixedFirstPath}
@@ -1759,6 +1907,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               setFixedFirstStartSec={setFixedFirstStartSec}
               fixedFirstEndSec={fixedFirstEndSec}
               setFixedFirstEndSec={setFixedFirstEndSec}
+              smartOnly={isSmartMixModule}
             />
           ) : tab === "base" ? (
             <BaseSettings
@@ -1793,6 +1942,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               setSubtitleOutlineColor={setActiveOutlineColor}
             />
           ) : <VideoProcessingSettings value={videoProcessing} onChange={setVideoProcessing} />}</div>
+          {isSmartMixModule ? <SmartMatchStatusPanel segmentLibrary={segmentLibraryState} index={smartIndexState} matches={smartMatchStates} /> : null}
           <div
             className={`cta ${canGenerate ? (running ? "disabled" : "ready") : "disabled"}`}
             onClick={onGenerate}
