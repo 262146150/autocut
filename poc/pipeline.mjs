@@ -56,6 +56,31 @@ export async function probeDuration(file) {
   }
 }
 
+export async function probeVideoSize(file) {
+  try {
+    const out = await runOutput(FFPROBE, [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=width,height:stream_tags=rotate:stream_side_data=rotation",
+      "-of", "json",
+      file,
+    ]);
+    const data = JSON.parse(out);
+    const stream = data.streams?.[0] ?? {};
+    let width = Number(stream.width);
+    let height = Number(stream.height);
+    const tagRotate = Number(stream.tags?.rotate ?? 0);
+    const sideRotate = Number(stream.side_data_list?.find((item) => item.rotation !== undefined)?.rotation ?? 0);
+    const rotate = Number.isFinite(tagRotate) && tagRotate !== 0 ? tagRotate : sideRotate;
+    if (Math.abs(rotate) % 180 === 90) [width, height] = [height, width];
+    return Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0
+      ? { width, height }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 没素材时用 lavfi 造测试片，便于 demo。 */
 export async function makeTestClips(dir) {
   await mkdir(dir, { recursive: true });
@@ -259,6 +284,10 @@ export async function runMix({
   fixedFirstPath = "",
   fixedFirstStartSec = 0,
   fixedFirstEndSec = 0,
+  fixedLastEnabled = false,
+  fixedLastPath = "",
+  fixedLastStartSec = 0,
+  fixedLastEndSec = 0,
   outputPrefix = "mix",
   outputStartIndex = 1,
   rotateClipOrder = false,
@@ -281,12 +310,21 @@ export async function runMix({
     clipStartSec: Math.max(0, Number(fixedFirstStartSec ?? 0)),
     clipEndSec: Math.max(0, Number(fixedFirstEndSec ?? 0)),
   } : null;
+  const fixedLast = fixedLastEnabled && fixedLastPath ? {
+    path: String(fixedLastPath),
+    clipStartSec: Math.max(0, Number(fixedLastStartSec ?? 0)),
+    clipEndSec: Math.max(0, Number(fixedLastEndSec ?? 0)),
+  } : null;
   if (fixedFirst && !existsSync(fixedFirst.path)) {
     throw new Error("固定首素材文件不存在");
   }
-  const fixedFirstInClips = Boolean(fixedFirst && clips.some((clip) => path.resolve(clip) === path.resolve(fixedFirst.path)));
-  const selectableClips = fixedFirstInClips
-    ? clips.filter((clip) => path.resolve(clip) !== path.resolve(fixedFirst.path))
+  if (fixedLast && !existsSync(fixedLast.path)) {
+    throw new Error("固定末素材文件不存在");
+  }
+  const fixedPaths = [fixedFirst?.path, fixedLast?.path].filter(Boolean).map((file) => path.resolve(file));
+  const fixedInClipsCount = clips.filter((clip) => fixedPaths.includes(path.resolve(clip))).length;
+  const selectableClips = fixedPaths.length
+    ? clips.filter((clip) => !fixedPaths.includes(path.resolve(clip)))
     : clips;
   const results = [];
   const perOutput = resolveMaterialCount(materialCount, clips.length);
@@ -296,7 +334,11 @@ export async function runMix({
     let clipOrder;
     const outputClips = rotateClipOrder ? rotated(selectableClips, idx) : selectableClips;
     if (targetDurationSec > 0 && resolveMaterialCount(materialCount, 0) === 0) {
-      const fixedDuration = fixedFirst ? await effectiveClipDuration(fixedFirst.path, fixedFirst, durationCache) : 0;
+      const fixedDuration = (fixedFirst ? await effectiveClipDuration(fixedFirst.path, fixedFirst, durationCache) : 0)
+        + (fixedLast ? await effectiveClipDuration(fixedLast.path, fixedLast, durationCache) : 0);
+      if (fixedDuration > targetDurationSec + 0.25) {
+        throw new Error("固定首/末素材总时长超过配音或音频时长，请缩短首尾素材或调整音频");
+      }
       const remainingDuration = Math.max(0, targetDurationSec - fixedDuration);
       clipOrder = remainingDuration > 0 ? await pickForDuration(outputClips, remainingDuration, {
         clipStartSec,
@@ -305,11 +347,11 @@ export async function runMix({
         allowReuse,
       }, durationCache) : [];
     } else if (allowReuse) {
-      const count = fixedFirstInClips ? Math.max(0, perOutput - 1) : perOutput;
-      if (count > 0 && !outputClips.length) throw new Error("固定首素材之外没有可用素材");
+      const count = fixedInClipsCount ? Math.max(0, perOutput - fixedInClipsCount) : perOutput;
+      if (count > 0 && !outputClips.length) throw new Error("固定首/末素材之外没有可用素材");
       clipOrder = repeatPick(outputClips, count, shuffleClips);
     } else {
-      const count = fixedFirstInClips ? Math.max(0, perOutput - 1) : perOutput;
+      const count = fixedInClipsCount ? Math.max(0, perOutput - fixedInClipsCount) : perOutput;
       if (remaining.length < count) {
         throw new Error("素材数量不足：请开启允许素材重复，或减少使用素材数量/导出数量");
       }
@@ -318,6 +360,7 @@ export async function runMix({
     const clipItems = [
       ...(fixedFirst ? [fixedFirst] : []),
       ...clipOrder.map((clip) => ({ path: clip, clipStartSec, clipEndSec })),
+      ...(fixedLast ? [fixedLast] : []),
     ];
     const segDir = path.join(workDir, `out${idx}`);
     await mkdir(segDir, { recursive: true });

@@ -6,7 +6,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runMix, makeTestClips, collectClips, probeDuration, rm } from "../poc/pipeline.mjs";
+import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, rm } from "../poc/pipeline.mjs";
 import { rewriteCopy } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
 import { buildSmartMaterialIndex, rankClipsForPrompt } from "./smart_match.mjs";
@@ -313,7 +313,12 @@ async function apiMix(req, res) {
     fixedFirstPath = "",
     fixedFirstStartSec = 0,
     fixedFirstEndSec = 0,
+    fixedLastEnabled = false,
+    fixedLastPath = "",
+    fixedLastStartSec = 0,
+    fixedLastEndSec = 0,
     smartMix = false,
+    smartMaterialMode = "segments",
     groupOutputs = true,
     outputDir = "",
   } = await readBody(req);
@@ -368,7 +373,8 @@ async function apiMix(req, res) {
         throw new Error(`音频文件不存在：${validAudioItems[audioIndex].path}`);
       }
     }
-    const segmentLibrary = smartMix
+    const shouldSegmentSmartMaterials = smartMix && smartMaterialMode === "raw";
+    const segmentLibrary = shouldSegmentSmartMaterials
       ? await buildSegmentLibrary(sourceClips, {
         cacheDir: path.join(CACHE, "segments"),
         targetSegmentSec: 12,
@@ -397,6 +403,11 @@ async function apiMix(req, res) {
         msg: segmentLibrary.reused
           ? `智能分割：复用片段库 ${segmentLibrary.segments.length} 个片段`
           : `智能分割：完成 ${segmentLibrary.segments.length} 个片段`,
+      });
+    } else if (smartMix) {
+      send({
+        type: "log",
+        msg: "AI素材类型：已分割片段，跳过智能分割，直接建立匹配索引",
       });
     }
     const smartIndex = smartMix
@@ -432,6 +443,7 @@ async function apiMix(req, res) {
       source: {
         inputDir: inputs && existsSync(inputs) ? inputs : null,
         materialCount: sourceClips.length,
+        smartMaterialMode: smartMix ? smartMaterialMode : null,
         segmentLibrary: segmentLibrary ? {
           engine: segmentLibrary.engine,
           targetEngine: segmentLibrary.targetEngine,
@@ -480,7 +492,12 @@ async function apiMix(req, res) {
         fixedFirstPath,
         fixedFirstStartSec,
         fixedFirstEndSec,
+        fixedLastEnabled,
+        fixedLastPath,
+        fixedLastStartSec,
+        fixedLastEndSec,
         smartMix,
+        smartMaterialMode: smartMix ? smartMaterialMode : null,
         groupOutputs,
       },
       groups: [],
@@ -561,6 +578,10 @@ async function apiMix(req, res) {
           fixedFirstPath,
           fixedFirstStartSec,
           fixedFirstEndSec,
+          fixedLastEnabled,
+          fixedLastPath,
+          fixedLastStartSec,
+          fixedLastEndSec,
           outputPrefix: groupOutputs ? "成片" : `文案${pad2(copyIndex + 1)}_成片`,
           rotateClipOrder: Boolean(smartMatch),
           asrCacheDir,
@@ -658,6 +679,10 @@ async function apiMix(req, res) {
           fixedFirstPath,
           fixedFirstStartSec,
           fixedFirstEndSec,
+          fixedLastEnabled,
+          fixedLastPath,
+          fixedLastStartSec,
+          fixedLastEndSec,
           outputPrefix: groupOutputs ? "成片" : `音频${pad2(audioIndex + 1)}_成片`,
           rotateClipOrder: Boolean(smartMatch),
           asrCacheDir,
@@ -715,6 +740,10 @@ async function apiMix(req, res) {
       fixedFirstPath,
       fixedFirstStartSec,
       fixedFirstEndSec,
+      fixedLastEnabled,
+      fixedLastPath,
+      fixedLastStartSec,
+      fixedLastEndSec,
       asrCacheDir,
       onEvent: (e) => send(e),
       outputPrefix: "成片",
@@ -735,6 +764,38 @@ async function apiMix(req, res) {
   res.end();
 }
 
+function classifyVideoSize(size) {
+  if (!size) return "unknown";
+  if (size.width > size.height) return "landscape";
+  if (size.height > size.width) return "portrait";
+  return "square";
+}
+
+async function inspectMaterialOrientation(clips) {
+  const orientation = {
+    portrait: 0,
+    landscape: 0,
+    square: 0,
+    unknown: 0,
+    resolved: "9:16",
+  };
+  const metaByPath = new Map();
+  let next = 0;
+  const workerCount = Math.min(6, clips.length);
+  async function worker() {
+    while (next < clips.length) {
+      const clip = clips[next++];
+      const size = await probeVideoSize(clip);
+      const kind = classifyVideoSize(size);
+      orientation[kind] += 1;
+      metaByPath.set(clip, { width: size?.width, height: size?.height, orientation: kind });
+    }
+  }
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  orientation.resolved = orientation.landscape > orientation.portrait ? "16:9" : "9:16";
+  return { orientation, metaByPath };
+}
+
 async function apiMaterials(req, res) {
   const { inputs } = await readBody(req);
   res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
@@ -744,15 +805,20 @@ async function apiMaterials(req, res) {
     }
     const clips = await collectClips(inputs);
     if (!clips.length) throw new Error("该素材路径没有视频素材");
+    const { orientation, metaByPath } = await inspectMaterialOrientation(clips);
     res.end(JSON.stringify({
       valid: true,
       path: inputs,
       name: path.basename(inputs),
       count: clips.length,
+      orientation,
       clips: clips.map((clip) => ({
         name: path.basename(clip),
         path: clip,
         url: `/api/media?path=${encodeURIComponent(clip)}`,
+        width: metaByPath.get(clip)?.width,
+        height: metaByPath.get(clip)?.height,
+        orientation: metaByPath.get(clip)?.orientation,
       })),
     }));
   } catch (e) {

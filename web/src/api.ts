@@ -40,7 +40,12 @@ export interface MixParams {
   fixedFirstPath?: string;
   fixedFirstStartSec?: number;
   fixedFirstEndSec?: number;
+  fixedLastEnabled?: boolean;
+  fixedLastPath?: string;
+  fixedLastStartSec?: number;
+  fixedLastEndSec?: number;
   smartMix?: boolean;
+  smartMaterialMode?: "raw" | "segments";
   groupOutputs?: boolean;
   materialPaths?: string[];
   outputDir?: string;
@@ -94,6 +99,9 @@ export interface MaterialClip {
   name: string;
   path: string;
   url?: string;
+  width?: number;
+  height?: number;
+  orientation?: "portrait" | "landscape" | "square" | "unknown";
 }
 
 export interface MaterialFolderInfo {
@@ -102,6 +110,13 @@ export interface MaterialFolderInfo {
   name: string;
   count: number;
   clips: MaterialClip[];
+  orientation?: {
+    portrait: number;
+    landscape: number;
+    square: number;
+    unknown: number;
+    resolved: "9:16" | "16:9";
+  };
   msg?: string;
 }
 
@@ -323,10 +338,17 @@ export async function inspectMaterials(inputs: string): Promise<MaterialFolderIn
       path: inputs,
       name: "测试素材",
       count: 3,
+      orientation: {
+        portrait: 1,
+        landscape: 2,
+        square: 0,
+        unknown: 0,
+        resolved: "16:9",
+      },
       clips: [
-        { name: "clipA.mp4", path: "" },
-        { name: "clipB.mp4", path: "" },
-        { name: "clipC.mp4", path: "" },
+        { name: "clipA.mp4", path: "", width: 1280, height: 720, orientation: "landscape" },
+        { name: "clipB.mp4", path: "", width: 720, height: 1280, orientation: "portrait" },
+        { name: "clipC.mp4", path: "", width: 1920, height: 1080, orientation: "landscape" },
       ],
     };
   }

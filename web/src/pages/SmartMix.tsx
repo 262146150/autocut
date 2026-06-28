@@ -17,6 +17,8 @@ const SUBTITLE_FONTS = [
 const BOX_CORNERS = ["nw", "ne", "sw", "se"] as const;
 type TextLayerKind = "subtitle" | "custom";
 type MixMode = "custom" | "copy" | "audio";
+type SmartMaterialMode = "raw" | "segments";
+type AspectRatioMode = "auto" | "9:16" | "16:9";
 type DraggingTextLayer = { kind: "subtitle" } | { kind: "custom"; id: string };
 type BoxTarget = { kind: "remove"; id: string } | { kind: "watermark" };
 type BoxDrag = {
@@ -151,6 +153,31 @@ function outputNameFromUrl(url: string, fallback: string) {
   } catch {
     return fallback;
   }
+}
+
+function publicTaskMessage(message: string) {
+  if (/失败|错误|不存在|不足|请选择|请先|无法|读取失败/.test(message)) return message;
+  if (/合成文案|语音合成/.test(message)) return "正在生成配音";
+  if (/智能分割|片段库|分割/.test(message)) return "正在整理视频片段";
+  if (/智能索引|ONNX|clip|模型|engine|引擎|匹配/.test(message)) return "正在分析素材并匹配画面";
+  if (/输出目录/.test(message)) return "输出目录已准备";
+  if (/开始混剪|生成/.test(message)) return "正在生成视频";
+  return message.replace(/transnetv2-onnx|chinese-clip-vit-base-patch16-onnx|ONNX|onnx|引擎|engine/gi, "").trim();
+}
+
+function taskModeLabel(mode: MixMode) {
+  if (mode === "copy") return "文案模式";
+  if (mode === "audio") return "音频模式";
+  return "自定义模式";
+}
+
+function resolveAspectRatio(mode: AspectRatioMode, folderInfo: MaterialFolderInfo | null): "9:16" | "16:9" {
+  if (mode !== "auto") return mode;
+  return folderInfo?.orientation?.resolved ?? "9:16";
+}
+
+function aspectRatioDisplay(mode: AspectRatioMode, resolved: "9:16" | "16:9") {
+  return mode === "auto" ? `跟随素材方向（${resolved}）` : resolved;
 }
 
 function previewVolume(value: number) {
@@ -456,6 +483,16 @@ function FolderMixSettings({
   setFixedFirstStartSec,
   fixedFirstEndSec,
   setFixedFirstEndSec,
+  fixedLastEnabled,
+  setFixedLastEnabled,
+  fixedLastPath,
+  setFixedLastPath,
+  fixedLastStartSec,
+  setFixedLastStartSec,
+  fixedLastEndSec,
+  setFixedLastEndSec,
+  smartMaterialMode,
+  setSmartMaterialMode,
   smartOnly = false,
 }: {
   mixMode: MixMode;
@@ -488,6 +525,16 @@ function FolderMixSettings({
   setFixedFirstStartSec: (value: number) => void;
   fixedFirstEndSec: number;
   setFixedFirstEndSec: (value: number) => void;
+  fixedLastEnabled: boolean;
+  setFixedLastEnabled: (value: boolean) => void;
+  fixedLastPath: string;
+  setFixedLastPath: (value: string) => void;
+  fixedLastStartSec: number;
+  setFixedLastStartSec: (value: number) => void;
+  fixedLastEndSec: number;
+  setFixedLastEndSec: (value: number) => void;
+  smartMaterialMode: SmartMaterialMode;
+  setSmartMaterialMode: (value: SmartMaterialMode) => void;
   smartOnly?: boolean;
 }) {
   const chooseFixedFirst = () => {
@@ -496,6 +543,13 @@ function FolderMixSettings({
     const value = next.trim();
     setFixedFirstPath(value);
     if (value) setFixedFirstEnabled(true);
+  };
+  const chooseFixedLast = () => {
+    const next = prompt("输入固定末素材视频路径", fixedLastPath);
+    if (next === null) return;
+    const value = next.trim();
+    setFixedLastPath(value);
+    if (value) setFixedLastEnabled(true);
   };
 
   return (
@@ -508,6 +562,15 @@ function FolderMixSettings({
           <TogglePill active={mixMode === "audio"} onClick={() => setMixMode("audio")}>音频模式</TogglePill>
         </div>
       </div>
+      {smartOnly ? (
+        <div className="folder-setting-row">
+          <span>素材类型</span>
+          <div className="mini-seg compact">
+            <TogglePill active={smartMaterialMode === "segments"} onClick={() => setSmartMaterialMode("segments")}>已分割片段</TogglePill>
+            <TogglePill active={smartMaterialMode === "raw"} onClick={() => setSmartMaterialMode("raw")}>原始长视频</TogglePill>
+          </div>
+        </div>
+      ) : null}
       <div className="folder-setting-row">
         <span>视频字幕</span>
         {mixMode === "copy" ? (
@@ -601,6 +664,29 @@ function FolderMixSettings({
           </div>
         </div>
       </div>
+      <div className="fixed-material">
+        <div className="folder-setting-row">
+          <span>固定末素材</span>
+          <div className="mini-seg compact">
+            <TogglePill active={fixedLastEnabled} onClick={() => setFixedLastEnabled(true)}>启用</TogglePill>
+            <TogglePill active={!fixedLastEnabled} onClick={() => setFixedLastEnabled(false)}>关闭</TogglePill>
+          </div>
+        </div>
+        <div className="fixed-picker">
+          <span title={fixedLastPath}>{fixedLastPath ? basename(fixedLastPath) : "未选择"}</span>
+          <button className="icon-btn text-btn" type="button" onClick={chooseFixedLast}>选择</button>
+          <button className="icon-btn" type="button" onClick={() => { setFixedLastPath(""); setFixedLastEnabled(false); }}>×</button>
+        </div>
+        <div className={`folder-setting-row ${fixedLastEnabled ? "" : "disabled"}`}>
+          <span>末素材截取</span>
+          <div className="range-inline">
+            <MiniNumber value={fixedLastStartSec} onChange={setFixedLastStartSec} max={36000} />
+            ~
+            <MiniNumber value={fixedLastEndSec} onChange={setFixedLastEndSec} max={36000} />
+            秒
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -620,20 +706,18 @@ function SmartMatchStatusPanel({
       <div className="smart-status-h">
         <b>智能匹配</b>
         <span className={index?.available ? "ok" : "warn"}>
-          {index ? (index.available ? "ONNX已启用" : "本地索引") : "等待生成"}
+          {index ? "素材分析完成" : "等待生成"}
         </span>
       </div>
       {segmentLibrary ? (
         <div className="smart-status-meta">
           <span title={segmentLibrary.manifest}>片段库 {segmentLibrary.segments} 个</span>
-          <span>{segmentLibrary.reused ? "复用分割" : "新建分割"}</span>
-          <span title={segmentLibrary.engine}>{segmentLibrary.engine}</span>
+          <span>{segmentLibrary.reused ? "已复用" : "已整理"}</span>
         </div>
       ) : null}
       {index ? (
         <div className="smart-status-meta">
-          <span title={index.engine}>{index.engine}</span>
-          <span>{index.reused ? "复用缓存" : "新建索引"}</span>
+          <span>{index.reused ? "已分析" : "分析完成"}</span>
           <span>{index.indexedClips} 个素材</span>
         </div>
       ) : (
@@ -641,23 +725,20 @@ function SmartMatchStatusPanel({
           <span>开始生成后会分析素材并按文案/音频匹配画面</span>
         </div>
       )}
-      {index && !index.available && index.reason ? (
-        <div className="smart-status-reason" title={index.reason}>{index.reason}</div>
-      ) : null}
       {topMatches.length ? (
         <div className="smart-match-list">
           {topMatches.map((group) => (
             <div className="smart-match-group" key={group.key}>
               <div className="smart-match-title">
                 <span>{group.label}</span>
-                <em title={group.engine}>{group.engine}</em>
+                <em>匹配完成</em>
               </div>
               <div className="smart-match-items">
                 {group.matches.slice(0, 3).map((match) => (
                   <div className="smart-match-item" key={`${group.key}-${match.name}`}>
                     <span title={match.name}>{match.name}</span>
-                    <strong>{match.score.toFixed(3)}</strong>
-                    <i>{match.reason}</i>
+                    <strong>推荐</strong>
+                    <i>画面相关</i>
                   </div>
                 ))}
               </div>
@@ -796,12 +877,13 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [outputs, setOutputs] = useState<string[]>([]);
   const [exportDir, setExportDir] = useState("");
   const [taskOpen, setTaskOpen] = useState(false);
+  const [awaitingExportConfirm, setAwaitingExportConfirm] = useState(false);
   const [taskItems, setTaskItems] = useState<ExportTaskItem[]>([]);
-  const [taskLogs, setTaskLogs] = useState<string[]>([]);
   const [segmentLibraryState, setSegmentLibraryState] = useState<SegmentLibraryState | null>(null);
   const [smartIndexState, setSmartIndexState] = useState<SmartIndexState | null>(null);
   const [smartMatchStates, setSmartMatchStates] = useState<SmartMatchState[]>([]);
   const [mixMode, setMixMode] = useState<MixMode>(isSmartMixModule ? "copy" : "custom");
+  const [copyAudioEditorOpen, setCopyAudioEditorOpen] = useState(false);
   const [copyItems, setCopyItems] = useState<CopyItem[]>([{ id: "copy-1", text: "" }]);
   const [activeCopyId, setActiveCopyId] = useState("copy-1");
   const [audioItems, setAudioItems] = useState<AudioItem[]>([]);
@@ -810,6 +892,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [synthesizingCopyId, setSynthesizingCopyId] = useState<string | null>(null);
   const [copyRewriteRevision, setCopyRewriteRevision] = useState(0);
   const [outCount, setOutCount] = useState(1);
+  const [smartMaterialMode, setSmartMaterialMode] = useState<SmartMaterialMode>("segments");
   const [materialCount, setMaterialCount] = useState(0);
   const [clipStartSec, setClipStartSec] = useState(0);
   const [clipEndSec, setClipEndSec] = useState(0);
@@ -817,10 +900,14 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [fixedFirstPath, setFixedFirstPath] = useState("");
   const [fixedFirstStartSec, setFixedFirstStartSec] = useState(0);
   const [fixedFirstEndSec, setFixedFirstEndSec] = useState(0);
+  const [fixedLastEnabled, setFixedLastEnabled] = useState(false);
+  const [fixedLastPath, setFixedLastPath] = useState("");
+  const [fixedLastStartSec, setFixedLastStartSec] = useState(0);
+  const [fixedLastEndSec, setFixedLastEndSec] = useState(0);
   const [shuffle, setShuffle] = useState(true);
   const [allowReuse, setAllowReuse] = useState(false);
   const [groupOutputs, setGroupOutputs] = useState(true);
-  const [aspectRatio, setAspectRatio] = useState<"9:16" | "16:9">("9:16");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>("auto");
   const [fillMode, setFillMode] = useState<"blur" | "black">("blur");
   const [videoProcessing, setVideoProcessing] = useState(DEFAULT_VIDEO_PROCESSING);
   const [videoVolume, setVideoVolume] = useState(100);
@@ -853,8 +940,10 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
 
   const bgmMediaUrl = bgmPath.trim() ? localMediaUrl(bgmPath.trim()) : "";
   const bgmPreviewUrl = bgmEnabled ? bgmMediaUrl : "";
+  const resolvedAspectRatio = resolveAspectRatio(aspectRatio, folderInfo);
+  const aspectRatioSummary = aspectRatioDisplay(aspectRatio, resolvedAspectRatio);
   const addTaskLog = (message: string) => {
-    setTaskLogs((logs) => [...logs.slice(-19), message]);
+    void message;
   };
 
   useEffect(() => {
@@ -938,11 +1027,15 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   };
 
   const onClearFolder = () => {
+    if (running || (!folder && !folderInfo)) return;
     setFolder(null);
     setFolderInfo(null);
     setSelectedClip(null);
     setOutputs([]);
+    setExportDir("");
     setProgress(0);
+    setTaskItems([]);
+    setAwaitingExportConfirm(false);
     setSegmentLibraryState(null);
     setSmartIndexState(null);
     setSmartMatchStates([]);
@@ -1242,33 +1335,55 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     speechAudioRef.current = audio;
   };
 
-  const onGenerate = async () => {
+  const validateGenerate = () => {
     if (!folder || running) return;
     if (folderInfo && folderInfo.count === 0) {
       setStatus("该目录没有视频素材");
-      return;
+      return false;
     }
     const validCopyItems = copyItems.filter((item) => item.text.trim());
     if (mixMode === "copy" && !validCopyItems.length) {
       setStatus("请先添加文案");
-      return;
+      return false;
     }
     const validAudioItems = audioItems.filter((item) => item.path.trim());
     if (mixMode === "audio" && !validAudioItems.length) {
       setStatus("请先添加音频");
-      return;
+      return false;
     }
     if (fixedFirstEnabled && !fixedFirstPath.trim()) {
       setStatus("请先选择固定首素材");
-      return;
+      return false;
     }
+    if (fixedLastEnabled && !fixedLastPath.trim()) {
+      setStatus("请先选择固定末素材");
+      return false;
+    }
+    return true;
+  };
+
+  const requestGenerateConfirm = () => {
+    if (running) return;
+    if (!validateGenerate()) return;
+    setAwaitingExportConfirm(true);
+    setTaskOpen(true);
+    setStatus("请确认生成设置");
+  };
+
+  const onGenerate = async () => {
+    if (!validateGenerate()) return;
+    const inputFolder = folder;
+    if (!inputFolder) return;
+    const validCopyItems = copyItems.filter((item) => item.text.trim());
+    const validAudioItems = audioItems.filter((item) => item.path.trim());
+    setAwaitingExportConfirm(false);
     setRunning(true);
     setOutputs([]);
     setExportDir("");
     setProgress(0);
     setTaskOpen(true);
     setTaskItems([]);
-    setTaskLogs([`任务创建：${mixMode === "copy" ? "文案模式" : mixMode === "audio" ? "音频模式" : "自定义模式"}`]);
+    addTaskLog(`任务创建：${taskModeLabel(mixMode)}`);
     setSegmentLibraryState(null);
     setSmartIndexState(null);
     setSmartMatchStates([]);
@@ -1306,8 +1421,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       });
     const copyVoice = VOICE_SPEAKERS.find((voice) => voice.VoiceType === selectedVoiceType) ?? VOICE_SPEAKERS[0] ?? null;
     const params: MixParams = {
-      inputs: folder === "__TEST__" ? undefined : folder,
-      canvas: aspectRatio === "16:9" ? "1920x1080" : "1080x1920",
+      inputs: inputFolder === "__TEST__" ? undefined : inputFolder,
+      canvas: resolvedAspectRatio === "16:9" ? "1920x1080" : "1080x1920",
       fillMode,
       out: mixMode === "copy"
         ? Math.max(1, validCopyItems.length * outCount)
@@ -1353,17 +1468,22 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       fixedFirstPath: fixedFirstPath.trim(),
       fixedFirstStartSec,
       fixedFirstEndSec,
+      fixedLastEnabled: fixedLastEnabled && Boolean(fixedLastPath.trim()),
+      fixedLastPath: fixedLastPath.trim(),
+      fixedLastStartSec,
+      fixedLastEndSec,
       textOverlays,
       videoProcessing,
       smartMix: isSmartMixModule,
+      smartMaterialMode: isSmartMixModule ? smartMaterialMode : undefined,
       groupOutputs,
     };
     try {
       await mix(params, (e) => {
         if (e.type === "start") {
           clipsPerOutput = Math.max(e.clips.length, 1);
-          setStatus(`素材 ${e.clips.length} 个`);
-          addTaskLog(`素材 ${e.clips.length} 个，预计导出 ${e.out} 个视频`);
+          setStatus(`已准备 ${e.clips.length} 个素材，预计生成 ${e.out} 个视频`);
+          addTaskLog(`已准备 ${e.clips.length} 个素材，预计生成 ${e.out} 个视频`);
           setTaskItems(Array.from({ length: Math.max(1, e.out) }, (_, index) => ({
             id: `out-${index + 1}`,
             name: `成片_${String(index + 1).padStart(2, "0")}.mp4`,
@@ -1386,8 +1506,11 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
           }));
         }
         else if (e.type === "log") {
-          setStatus(e.msg);
-          addTaskLog(e.msg);
+          const msg = publicTaskMessage(e.msg);
+          if (msg) {
+            setStatus(msg);
+            addTaskLog(msg);
+          }
         }
         else if (e.type === "segment_library") {
           setSegmentLibraryState({
@@ -1398,8 +1521,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             segments: e.segments,
             manifest: e.manifest,
           });
-          setStatus(e.reused ? `复用片段库：${e.segments} 个片段` : `智能分割完成：${e.segments} 个片段`);
-          addTaskLog(e.reused ? `复用片段库：${e.segments} 个片段` : `智能分割完成：${e.segments} 个片段`);
+          const msg = `素材片段整理完成：${e.segments} 个片段`;
+          setStatus(msg);
+          addTaskLog(msg);
         }
         else if (e.type === "smart_index") {
           setSmartIndexState({
@@ -1409,23 +1533,27 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             indexedClips: e.indexedClips,
             reason: e.reason,
           });
-          setStatus(e.available ? `ONNX匹配已启用：${e.engine}` : "ONNX不可用，已降级为本地索引匹配");
-          addTaskLog(e.available ? `ONNX匹配已启用：${e.engine}` : "ONNX不可用，已降级为本地索引匹配");
+          const msg = `素材分析完成：${e.indexedClips} 个素材`;
+          setStatus(msg);
+          addTaskLog(msg);
         }
         else if (e.type === "smart_match") {
           const key = `${e.itemType}-${e.index}`;
           const label = `${e.itemType === "copy" ? "文案" : "音频"} ${e.index}`;
+          setStatus(`${label} 已完成画面匹配`);
           setSmartMatchStates((items) => {
             const next = items.filter((item) => item.key !== key);
             return [...next, { key, label, engine: e.engine, matches: e.matches }];
           });
         }
         else if (e.type === "error") {
+          setAwaitingExportConfirm(false);
           setStatus("失败：" + e.msg);
           addTaskLog("失败：" + e.msg);
           setTaskItems((items) => items.map((item) => item.status === "running" ? { ...item, status: "error" } : item));
         }
         else if (e.type === "done") {
+          setAwaitingExportConfirm(false);
           setProgress(100);
           setStatus(`完成，共 ${e.outputs.length} 条`);
           setOutputs(e.outputs);
@@ -1450,6 +1578,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         }
       });
     } catch (err) {
+      setAwaitingExportConfirm(false);
       setStatus("失败：" + (err as Error).message);
       addTaskLog("失败：" + (err as Error).message);
       setTaskItems((items) => items.map((item) => item.status === "running" ? { ...item, status: "error" } : item));
@@ -1458,6 +1587,26 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   };
 
   const canGenerate = !!folder && (!folderInfo || folderInfo.count > 0);
+  const validCopyCount = copyItems.filter((item) => item.text.trim()).length;
+  const validAudioCount = audioItems.filter((item) => item.path.trim()).length;
+  const plannedOutputs = mixMode === "copy"
+    ? Math.max(1, validCopyCount * outCount)
+    : mixMode === "audio"
+      ? Math.max(1, validAudioCount * outCount)
+      : outCount;
+  const exportSummary = [
+    { label: "生成模式", value: isSmartMixModule ? `AI 智能混剪 · ${taskModeLabel(mixMode)}` : taskModeLabel(mixMode) },
+    { label: "素材来源", value: folderInfo?.name || (folder ? basename(folder) : "未导入") },
+    { label: "素材数量", value: `${folderInfo?.count ?? 0} 个视频` },
+    { label: "视频比例", value: aspectRatioSummary },
+    ...(isSmartMixModule ? [{ label: "素材类型", value: smartMaterialMode === "segments" ? "已分割片段" : "原始长视频" }] : []),
+    ...(mixMode === "copy" ? [{ label: "文案数量", value: `${validCopyCount} 条` }] : []),
+    ...(mixMode === "audio" ? [{ label: "音频数量", value: `${validAudioCount} 个` }] : []),
+    ...(fixedFirstEnabled && fixedFirstPath.trim() ? [{ label: "固定首素材", value: basename(fixedFirstPath) }] : []),
+    ...(fixedLastEnabled && fixedLastPath.trim() ? [{ label: "固定末素材", value: basename(fixedLastPath) }] : []),
+    { label: "预计产出", value: `${plannedOutputs} 个视频` },
+    { label: "输出方式", value: mixMode === "copy" ? (groupOutputs ? "按文案分类" : "不分类") : mixMode === "audio" ? (groupOutputs ? "按音频分类" : "不分类") : "按任务批次输出" },
+  ];
   const folderName = folderInfo?.name ?? (folder ? folder.split("/").pop() || folder : "");
   const subtitleFont = SUBTITLE_FONTS[subtitleFontIndex] ?? SUBTITLE_FONTS[0];
   const previewSubtitleFontSize = Math.max(18, Math.round(subtitleFontSize * 0.46));
@@ -1545,7 +1694,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
           <div className="box" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div className="box-h">
               <button className="import-btn" onClick={onImport}>导入文件夹</button>
-              <div className="r"><button className="icon-btn text-btn" onClick={onClearFolder}>清空</button></div>
+              <div className="r">
+                <button className="icon-btn text-btn" type="button" onClick={onClearFolder} disabled={running || (!folder && !folderInfo)}>清空</button>
+              </div>
             </div>
             {!folder ? (
               <div className="empty">
@@ -1593,9 +1744,11 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               <button className="mini-chip" type="button" onClick={onAddCustomText}>添加文字</button>
               <span>视频比例:</span>
               <div className="mini-seg compact">
+                <button className={aspectRatio === "auto" ? "active" : ""} type="button" onClick={() => setAspectRatio("auto")}>跟随素材</button>
                 <button className={aspectRatio === "9:16" ? "active" : ""} type="button" onClick={() => setAspectRatio("9:16")}>9:16</button>
                 <button className={aspectRatio === "16:9" ? "active" : ""} type="button" onClick={() => setAspectRatio("16:9")}>16:9</button>
               </div>
+              {aspectRatio === "auto" ? <span className="ratio-hint">按多数：{resolvedAspectRatio}</span> : null}
               <span>填充方式:</span>
               <div className="mini-seg compact">
                 <button className={fillMode === "blur" ? "active" : ""} type="button" onClick={() => setFillMode("blur")}>虚化</button>
@@ -1609,7 +1762,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             onPointerLeave={() => { setDraggingLayer(null); setBoxDrag(null); }}
           >
             <div
-              className={`preview-stage ratio-${aspectRatio.replace(":", "-")} fill-${fillMode}`}
+              className={`preview-stage ratio-${resolvedAspectRatio.replace(":", "-")} fill-${fillMode}`}
               onPointerMove={(e) => {
                 if (boxDrag) updateBoxDrag(e.clientX, e.clientY, e.currentTarget);
                 if (draggingLayer) updateTextPosition(draggingLayer, e.clientX, e.clientY, e.currentTarget);
@@ -1840,17 +1993,194 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
           </div>
           <div className="box copybox">
             <div className="box-h">
-              {outputs.length ? "生成结果" : mixMode === "copy" ? "文案列表" : mixMode === "audio" ? "音频列表" : "视频文案"}
+              {mixMode === "copy" ? "文案列表" : mixMode === "audio" ? "音频列表" : "视频文案"}
             </div>
-            {outputs.length ? (
-              <div style={{ padding: 12 }}>
-                {exportDir ? <div className="export-dir" title={exportDir}>输出目录：{exportDir}</div> : null}
-                <div className="outs">{outputs.map((o) => <video key={o} src={o} controls />)}</div>
+            {mixMode === "copy" ? (
+              <div className="copy-summary">
+                <div className="copy-summary-top">
+                  <div>
+                    <b>{copyItems.length} 条文案</b>
+                    <span>{copySubtitleEnabled ? "生成时会按文案配音并生成字幕" : "生成时会按文案配音"}</span>
+                  </div>
+                  <button className="import-btn" type="button" onClick={() => setCopyAudioEditorOpen(true)}>编辑文案</button>
+                </div>
+                <div className="copy-summary-list">
+                  {copyItems.slice(0, 4).map((item, index) => (
+                    <button className={item.id === activeCopyItem?.id ? "active" : ""} key={item.id} type="button" onClick={() => {
+                      setActiveCopyId(item.id);
+                      setCopyAudioEditorOpen(true);
+                    }}>
+                      <b>文案 {index + 1}</b>
+                      <span>{item.text.trim() || "未填写"}</span>
+                    </button>
+                  ))}
+                </div>
+                {copyItems.length > 4 ? <div className="copy-summary-more">还有 {copyItems.length - 4} 条，打开弹层查看</div> : null}
+                {outputs.length ? <div className="copy-summary-done">已生成 {outputs.length} 个视频，可在右下角任务或产出记录中查看。</div> : null}
               </div>
-            ) : mixMode === "copy" ? (
-              <div className="copy-editor">
+            ) : mixMode === "audio" ? (
+              <div className="copy-summary">
+                <div className="copy-summary-top">
+                  <div>
+                    <b>{audioItems.length} 个音频</b>
+                    <span>{audioSubtitleEnabled ? "按音频时长生成，可填写字幕文案" : "按音频时长生成"}</span>
+                  </div>
+                  <button className="import-btn" type="button" onClick={() => {
+                    if (!audioItems.length) addAudioItem();
+                    setCopyAudioEditorOpen(true);
+                  }}>编辑音频</button>
+                </div>
+                {audioItems.length ? (
+                  <div className="copy-summary-list">
+                    {audioItems.slice(0, 4).map((item, index) => (
+                      <button className={item.id === activeAudioItem?.id ? "active" : ""} key={item.id} type="button" onClick={() => {
+                        setActiveAudioId(item.id);
+                        setCopyAudioEditorOpen(true);
+                      }}>
+                        <b>音频 {index + 1}</b>
+                        <span>{item.name || (item.path ? basename(item.path) : "未选择")}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {!audioItems.length ? <div className="copy-summary-empty">还没有音频，点击编辑音频添加。</div> : null}
+                {audioItems.length > 4 ? <div className="copy-summary-more">还有 {audioItems.length - 4} 个，打开弹层查看</div> : null}
+                {outputs.length ? <div className="copy-summary-done">已生成 {outputs.length} 个视频，可在右下角任务或产出记录中查看。</div> : null}
+              </div>
+            ) : (
+              <div className="body">
+                <div>请在左侧选择一个文件夹</div>
+                <div className="s muted">选中文件夹后即可输入文案或添加音频</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 右：设置 */}
+        <div className="col settings">
+          <div className="tabs">
+            <button className={tab === "generate" ? "active" : ""} onClick={() => setTab("generate")}>生成设置</button>
+            <button className={tab === "base" ? "active" : ""} onClick={() => setTab("base")}>基础设置</button>
+            <button className={tab === "pic" ? "active" : ""} onClick={() => setTab("pic")}>画面处理</button>
+          </div>
+          <div className="set-scroll">{tab === "generate" ? (
+            <div className="box right-settings-card">
+              <div className="box-h">生成设置</div>
+              <div className="right-settings-body">
+                <FolderMixSettings
+                  mixMode={mixMode}
+                  setMixMode={setMixMode}
+                  outCount={outCount}
+                  setOutCount={setOutCount}
+                  materialCount={materialCount}
+                  setMaterialCount={setMaterialCount}
+                  clipStartSec={clipStartSec}
+                  setClipStartSec={setClipStartSec}
+                  clipEndSec={clipEndSec}
+                  setClipEndSec={setClipEndSec}
+                  shuffle={shuffle}
+                  setShuffle={setShuffle}
+                  allowReuse={allowReuse}
+                  setAllowReuse={setAllowReuse}
+                  subtitleMode={subtitleMode}
+                  setSubtitleMode={setSubtitleMode}
+                  copySubtitleEnabled={copySubtitleEnabled}
+                  setCopySubtitleEnabled={setCopySubtitleEnabled}
+                  audioSubtitleEnabled={audioSubtitleEnabled}
+                  setAudioSubtitleEnabled={setAudioSubtitleEnabled}
+                  groupOutputs={groupOutputs}
+                  setGroupOutputs={setGroupOutputs}
+                  fixedFirstEnabled={fixedFirstEnabled}
+                  setFixedFirstEnabled={setFixedFirstEnabled}
+                  fixedFirstPath={fixedFirstPath}
+                  setFixedFirstPath={setFixedFirstPath}
+                  fixedFirstStartSec={fixedFirstStartSec}
+                  setFixedFirstStartSec={setFixedFirstStartSec}
+                  fixedFirstEndSec={fixedFirstEndSec}
+                  setFixedFirstEndSec={setFixedFirstEndSec}
+                  fixedLastEnabled={fixedLastEnabled}
+                  setFixedLastEnabled={setFixedLastEnabled}
+                  fixedLastPath={fixedLastPath}
+                  setFixedLastPath={setFixedLastPath}
+                  fixedLastStartSec={fixedLastStartSec}
+                  setFixedLastStartSec={setFixedLastStartSec}
+                  fixedLastEndSec={fixedLastEndSec}
+                  setFixedLastEndSec={setFixedLastEndSec}
+                  smartMaterialMode={smartMaterialMode}
+                  setSmartMaterialMode={setSmartMaterialMode}
+                  smartOnly={isSmartMixModule}
+                />
+              </div>
+            </div>
+          ) : tab === "base" ? (
+            <BaseSettings
+              videoVolume={videoVolume}
+              setVideoVolume={setVideoVolume}
+              bgmEnabled={bgmEnabled}
+              setBgmEnabled={setBgmEnabled}
+              bgmPath={bgmPath}
+              setBgmPath={setBgmPath}
+              bgmVolume={bgmVolume}
+              setBgmVolume={setBgmVolume}
+              bgmCanPreview={Boolean(bgmMediaUrl)}
+              bgmPreviewPlaying={bgmPreviewPlaying}
+              onToggleBgmPreview={toggleBgmPreview}
+              mixMode={mixMode}
+              selectedVoice={selectedVoice}
+              copyVoiceEnabled={copyVoiceEnabled}
+              setCopyVoiceEnabled={setCopyVoiceEnabled}
+              copyVoiceSpeechRate={copyVoiceSpeechRate}
+              setCopyVoiceSpeechRate={setCopyVoiceSpeechRate}
+              copyVoiceLoudnessRate={copyVoiceLoudnessRate}
+              setCopyVoiceLoudnessRate={setCopyVoiceLoudnessRate}
+              onOpenVoicePicker={() => setVoicePickerOpen(true)}
+              activeTextLabel={activeTextLabel}
+              subtitleText={activeTextValue}
+              setSubtitleText={setActiveTextValue}
+              subtitleFontIndex={activeFontIndex}
+              setSubtitleFontIndex={setActiveFontIndex}
+              subtitleFontSize={activeFontSize}
+              setSubtitleFontSize={setActiveFontSize}
+              subtitleOpacity={activeOpacity}
+              setSubtitleOpacity={setActiveOpacity}
+              subtitleOutlineWidth={activeOutlineWidth}
+              setSubtitleOutlineWidth={setActiveOutlineWidth}
+              subtitleColor={activeTextColor}
+              setSubtitleColor={setActiveTextColor}
+              subtitleOutlineColor={activeOutlineColor}
+              setSubtitleOutlineColor={setActiveOutlineColor}
+            />
+          ) : <VideoProcessingSettings value={videoProcessing} onChange={setVideoProcessing} />}</div>
+          {isSmartMixModule ? <SmartMatchStatusPanel segmentLibrary={segmentLibraryState} index={smartIndexState} matches={smartMatchStates} /> : null}
+          <div
+            className={`cta ${canGenerate ? (running ? "disabled" : "ready") : "disabled"}`}
+            onClick={requestGenerateConfirm}
+          >
+            {!folder ? "请先导入视频素材" : running ? "生成中…" : folderInfo?.count === 0 ? "该文件夹没有视频素材" : "开始生成"}
+          </div>
+          {running || progress > 0 || status ? (
+            <button className="task-mini" type="button" onClick={() => setTaskOpen(true)}>
+              <span>{running ? "导出中" : progress >= 100 ? "导出完成" : "任务状态"}</span>
+              <b>{progress}%</b>
+              <em>{status || "查看导出任务"}</em>
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {copyAudioEditorOpen && (mixMode === "copy" || mixMode === "audio") ? (
+        <div className="copy-modal-backdrop" onMouseDown={() => setCopyAudioEditorOpen(false)}>
+          <div className="copy-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="copy-modal-h">
+              <div>
+                <b>{mixMode === "copy" ? "编辑文案" : "编辑音频"}</b>
+                <span>{mixMode === "copy" ? "每条文案会生成对应配音和视频" : "每个音频会生成对应视频"}</span>
+              </div>
+              <button className="icon-btn" type="button" onClick={() => setCopyAudioEditorOpen(false)}>×</button>
+            </div>
+            {mixMode === "copy" ? (
+              <div className="copy-editor modal">
                 <div className="copy-editor-h">
-                  <span className="muted">{copySubtitleEnabled ? "开始生成时自动合成语音，并按文案生成字幕" : "开始生成时自动合成语音，不生成字幕"}</span>
+                  <span className="muted">{copySubtitleEnabled ? "生成时按文案生成字幕" : "字幕已关闭"}</span>
                   <button className="mini-chip" type="button" onClick={addCopyItem}>添加文案</button>
                 </div>
                 <div className="copy-tabs" role="tablist">
@@ -1912,10 +2242,10 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                   </div>
                 ) : null}
               </div>
-            ) : mixMode === "audio" ? (
-              <div className="copy-editor">
+            ) : (
+              <div className="copy-editor modal">
                 <div className="copy-editor-h">
-                  <span className="muted">{audioSubtitleEnabled ? "按导入音频时长自动混剪，可选填写字幕文案" : "按导入音频时长自动混剪，不生成字幕"}</span>
+                  <span className="muted">{audioSubtitleEnabled ? "可为音频填写字幕文案" : "字幕已关闭"}</span>
                   <button className="mini-chip" type="button" onClick={addAudioItem}>添加音频</button>
                 </div>
                 {audioItems.length ? (
@@ -1971,122 +2301,18 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                   </div>
                 ) : (
                   <div className="body">
-                    <div className="ph" style={{ fontSize: 30, opacity: 0.4 }}>♪</div>
                     <div>请添加一个音频文件</div>
                     <div className="s muted">音频将作为主音轨，并决定视频时长</div>
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="body">
-                <div>请在左侧选择一个文件夹</div>
-                <div className="s muted">选中文件夹后即可输入文案或添加音频</div>
-              </div>
             )}
-          </div>
-        </div>
-
-        {/* 右：设置 */}
-        <div className="col settings">
-          <div className="tabs">
-            <button className={tab === "generate" ? "active" : ""} onClick={() => setTab("generate")}>生成设置</button>
-            <button className={tab === "base" ? "active" : ""} onClick={() => setTab("base")}>基础设置</button>
-            <button className={tab === "pic" ? "active" : ""} onClick={() => setTab("pic")}>画面处理</button>
-          </div>
-          <div className="set-scroll">{tab === "generate" ? (
-            <div className="box right-settings-card">
-              <div className="box-h">生成设置</div>
-              <div className="right-settings-body">
-                <FolderMixSettings
-                  mixMode={mixMode}
-                  setMixMode={setMixMode}
-                  outCount={outCount}
-                  setOutCount={setOutCount}
-                  materialCount={materialCount}
-                  setMaterialCount={setMaterialCount}
-                  clipStartSec={clipStartSec}
-                  setClipStartSec={setClipStartSec}
-                  clipEndSec={clipEndSec}
-                  setClipEndSec={setClipEndSec}
-                  shuffle={shuffle}
-                  setShuffle={setShuffle}
-                  allowReuse={allowReuse}
-                  setAllowReuse={setAllowReuse}
-                  subtitleMode={subtitleMode}
-                  setSubtitleMode={setSubtitleMode}
-                  copySubtitleEnabled={copySubtitleEnabled}
-                  setCopySubtitleEnabled={setCopySubtitleEnabled}
-                  audioSubtitleEnabled={audioSubtitleEnabled}
-                  setAudioSubtitleEnabled={setAudioSubtitleEnabled}
-                  groupOutputs={groupOutputs}
-                  setGroupOutputs={setGroupOutputs}
-                  fixedFirstEnabled={fixedFirstEnabled}
-                  setFixedFirstEnabled={setFixedFirstEnabled}
-                  fixedFirstPath={fixedFirstPath}
-                  setFixedFirstPath={setFixedFirstPath}
-                  fixedFirstStartSec={fixedFirstStartSec}
-                  setFixedFirstStartSec={setFixedFirstStartSec}
-                  fixedFirstEndSec={fixedFirstEndSec}
-                  setFixedFirstEndSec={setFixedFirstEndSec}
-                  smartOnly={isSmartMixModule}
-                />
-              </div>
+            <div className="copy-modal-actions">
+              <button className="import-btn" type="button" onClick={() => setCopyAudioEditorOpen(false)}>完成</button>
             </div>
-          ) : tab === "base" ? (
-            <BaseSettings
-              videoVolume={videoVolume}
-              setVideoVolume={setVideoVolume}
-              bgmEnabled={bgmEnabled}
-              setBgmEnabled={setBgmEnabled}
-              bgmPath={bgmPath}
-              setBgmPath={setBgmPath}
-              bgmVolume={bgmVolume}
-              setBgmVolume={setBgmVolume}
-              bgmCanPreview={Boolean(bgmMediaUrl)}
-              bgmPreviewPlaying={bgmPreviewPlaying}
-              onToggleBgmPreview={toggleBgmPreview}
-              mixMode={mixMode}
-              selectedVoice={selectedVoice}
-              copyVoiceEnabled={copyVoiceEnabled}
-              setCopyVoiceEnabled={setCopyVoiceEnabled}
-              copyVoiceSpeechRate={copyVoiceSpeechRate}
-              setCopyVoiceSpeechRate={setCopyVoiceSpeechRate}
-              copyVoiceLoudnessRate={copyVoiceLoudnessRate}
-              setCopyVoiceLoudnessRate={setCopyVoiceLoudnessRate}
-              onOpenVoicePicker={() => setVoicePickerOpen(true)}
-              activeTextLabel={activeTextLabel}
-              subtitleText={activeTextValue}
-              setSubtitleText={setActiveTextValue}
-              subtitleFontIndex={activeFontIndex}
-              setSubtitleFontIndex={setActiveFontIndex}
-              subtitleFontSize={activeFontSize}
-              setSubtitleFontSize={setActiveFontSize}
-              subtitleOpacity={activeOpacity}
-              setSubtitleOpacity={setActiveOpacity}
-              subtitleOutlineWidth={activeOutlineWidth}
-              setSubtitleOutlineWidth={setActiveOutlineWidth}
-              subtitleColor={activeTextColor}
-              setSubtitleColor={setActiveTextColor}
-              subtitleOutlineColor={activeOutlineColor}
-              setSubtitleOutlineColor={setActiveOutlineColor}
-            />
-          ) : <VideoProcessingSettings value={videoProcessing} onChange={setVideoProcessing} />}</div>
-          {isSmartMixModule ? <SmartMatchStatusPanel segmentLibrary={segmentLibraryState} index={smartIndexState} matches={smartMatchStates} /> : null}
-          <div
-            className={`cta ${canGenerate ? (running ? "disabled" : "ready") : "disabled"}`}
-            onClick={onGenerate}
-          >
-            {!folder ? "请先导入视频素材" : running ? "生成中…" : folderInfo?.count === 0 ? "该文件夹没有视频素材" : "开始生成"}
           </div>
-          {running || progress > 0 || status ? (
-            <button className="task-mini" type="button" onClick={() => setTaskOpen(true)}>
-              <span>{running ? "导出中" : progress >= 100 ? "导出完成" : "任务状态"}</span>
-              <b>{progress}%</b>
-              <em>{status || "查看导出任务"}</em>
-            </button>
-          ) : null}
         </div>
-      </div>
+      ) : null}
       <ExportTaskDrawer
         open={taskOpen}
         title={isSmartMixModule ? "AI 智能混剪导出" : "视频混剪导出"}
@@ -2095,7 +2321,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         running={running}
         exportDir={exportDir}
         items={taskItems}
-        logs={taskLogs}
+        summary={awaitingExportConfirm ? exportSummary : undefined}
+        confirmLabel="确认生成"
+        onConfirm={awaitingExportConfirm ? onGenerate : undefined}
         onClose={() => setTaskOpen(false)}
       />
       {voicePickerOpen ? (

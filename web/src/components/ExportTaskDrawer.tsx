@@ -23,7 +23,9 @@ export function ExportTaskDrawer({
   exportDir,
   manifest,
   items,
-  logs,
+  summary,
+  confirmLabel = "确认生成",
+  onConfirm,
   onClose,
 }: {
   open: boolean;
@@ -34,26 +36,29 @@ export function ExportTaskDrawer({
   exportDir?: string;
   manifest?: string;
   items: ExportTaskItem[];
-  logs: string[];
+  summary?: Array<{ label: string; value: string }>;
+  confirmLabel?: string;
+  onConfirm?: () => void;
   onClose: () => void;
 }) {
   if (!open) return null;
   const completed = items.filter((item) => item.status === "done").length;
   const total = items.length;
+  const waitingConfirm = Boolean(onConfirm && !running && !progress && !items.length);
   return (
     <div className="task-drawer-backdrop" onMouseDown={onClose}>
       <aside className="task-drawer" onMouseDown={(e) => e.stopPropagation()}>
         <div className="task-drawer-h">
           <div>
             <b>{title}</b>
-            <span>{running ? "任务进行中" : completed ? "任务已结束" : "等待开始"}</span>
+            <span>{running ? "任务进行中" : completed ? "任务已结束" : waitingConfirm ? "请确认后开始" : "等待开始"}</span>
           </div>
           <button className="icon-btn" type="button" onClick={onClose}>×</button>
         </div>
 
         <div className="task-progress-card">
           <div className="task-progress-top">
-            <span>{status || "暂无任务"}</span>
+            <span>{waitingConfirm ? "确认设置后开始生成" : status || "暂无任务"}</span>
             <b>{Math.max(0, Math.min(100, progress))}%</b>
           </div>
           <div className="bar"><i style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} /></div>
@@ -62,6 +67,23 @@ export function ExportTaskDrawer({
             {exportDir ? <span title={exportDir}>输出目录已生成</span> : null}
           </div>
         </div>
+
+        {waitingConfirm && summary?.length ? (
+          <div className="task-confirm-card">
+            <div className="task-section-h">
+              <b>生成确认</b>
+              <span>{summary.length} 项</span>
+            </div>
+            <div className="task-confirm-list">
+              {summary.map((item) => (
+                <label key={item.label}>
+                  <span>{item.label}</span>
+                  <b>{item.value}</b>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {exportDir ? (
           <div className="task-path" title={exportDir}>
@@ -95,15 +117,8 @@ export function ExportTaskDrawer({
           )}
         </div>
 
-        <div className="task-section-h">
-          <b>任务日志</b>
-          <span>最近 {logs.length} 条</span>
-        </div>
-        <div className="task-logs">
-          {logs.length ? logs.map((log, index) => <div key={`${log}-${index}`}>{log}</div>) : <div>暂无日志</div>}
-        </div>
-
         <div className="task-actions">
+          {waitingConfirm ? <button className="import-btn" type="button" onClick={onConfirm}>{confirmLabel}</button> : null}
           <button className="import-btn" type="button" onClick={() => { window.location.href = "/export-library"; }}>打开作品库</button>
           <button className="icon-btn text-btn" type="button" onClick={onClose}>收起</button>
         </div>

@@ -42,10 +42,9 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
   const [engine, setEngine] = useState("");
   const [taskOpen, setTaskOpen] = useState(false);
   const [taskItems, setTaskItems] = useState<ExportTaskItem[]>([]);
-  const [taskLogs, setTaskLogs] = useState<string[]>([]);
 
   const addTaskLog = (message: string) => {
-    setTaskLogs((logs) => [...logs.slice(-19), message]);
+    void message;
   };
 
   const switchSegmentMode = (mode: "material" | "reuse") => {
@@ -86,6 +85,18 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
     }
   };
 
+  const clearWorkspace = () => {
+    setFolder("");
+    setFolderInfo(null);
+    setSegments([]);
+    setSelected(null);
+    setManifest("");
+    setExportDir("");
+    setEngine("");
+    setProgress(0);
+    setStatus("");
+  };
+
   const onSegment = async () => {
     if (!folder || running) return;
     setRunning(true);
@@ -97,7 +108,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
     setProgress(0);
     setTaskOpen(true);
     setTaskItems([]);
-    setTaskLogs([`任务创建：${segmentMode === "reuse" ? "成片复用" : "原始素材"}分割`]);
+    addTaskLog(`任务创建：${segmentMode === "reuse" ? "成片复用" : "原始素材"}分割`);
     setStatus("智能分割准备中…");
     try {
       await segmentMaterials({
@@ -180,17 +191,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
           <div className="box segment-box">
             <div className="box-h">
               <button className="import-btn" type="button" onClick={onImport}>导入素材</button>
-              <button className="icon-btn text-btn" type="button" onClick={() => {
-                setFolder("");
-                setFolderInfo(null);
-                setSegments([]);
-                setSelected(null);
-                setManifest("");
-                setExportDir("");
-                setEngine("");
-                setProgress(0);
-                setStatus("");
-              }}>清空</button>
+              <button className="icon-btn text-btn" type="button" onClick={clearWorkspace} disabled={running || (!folder && !folderInfo && !segments.length)}>清空</button>
             </div>
             {!folderInfo ? (
               <div className="empty">
@@ -302,7 +303,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
                 <b>秒</b>
               </label>
               <div className="segment-setting-row">
-                <span>语音保护 <HelpTip text="使用 sherpa-onnx VAD 检测人声，把切点尽量避开说话中间。长口播仍会按最大时长拆分。" /></span>
+                <span>语音保护 <HelpTip text="检测人声位置，把切点尽量避开说话中间。长口播仍会按最大时长拆分。" /></span>
                 <div className="mini-seg compact">
                   <button className={speechProtection ? "active" : ""} type="button" onClick={() => setSpeechProtection(true)}>启用</button>
                   <button className={!speechProtection ? "active" : ""} type="button" onClick={() => setSpeechProtection(false)}>关闭</button>
@@ -315,7 +316,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
               <div className="segment-note">
                 {segmentMode === "reuse"
                   ? "成片复用模式会合并频繁转场，只输出更长的复用片段，避免 AI 混剪时画面过碎。"
-                  : "原始素材模式会用 TransNetV2 检测镜头，并用 sherpa-onnx VAD 避开人声切点。"}
+                  : "原始素材模式会检测画面变化，并尽量避开人声切点。"}
               </div>
             </div>
           </div>
@@ -329,7 +330,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
               <em>{status || "查看分割任务"}</em>
             </button>
           ) : null}
-          {engine ? <div className="segment-meta">引擎：{engine}</div> : null}
+          {engine ? <div className="segment-meta">分割完成，片段可用于后续混剪</div> : null}
         </aside>
       </div>
       <ExportTaskDrawer
@@ -341,7 +342,6 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
         exportDir={exportDir}
         manifest={manifest}
         items={taskItems}
-        logs={taskLogs}
         onClose={() => setTaskOpen(false)}
       />
     </div>
