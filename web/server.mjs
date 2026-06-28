@@ -1,11 +1,12 @@
-// server.mjs — 本地后端：提供 /api/mix + 托管构建产物 dist/ + 输出预览 /_run。零外部依赖。
+// server.mjs — 本地后端：提供 /api/mix + 托管构建产物 dist/ + 输出预览 /_run。
 //   开发: 终端1 `node server.mjs`(8787) + 终端2 `pnpm dev`(5173, 自动代理 /api,/_run)
 //   预览构建: `pnpm build` 后 `node server.mjs`，直接访问 http://localhost:8787
 import http from "node:http";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import Database from "better-sqlite3";
 import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, hasAudioStream, rm } from "../poc/pipeline.mjs";
 import { rewriteCopy } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
@@ -18,6 +19,7 @@ const RUN = path.resolve(__dir, "_run");
 const CACHE = path.resolve(__dir, "_cache");
 const EXPORT_ROOTS_FILE = path.join(RUN, "export_roots.json");
 const MATERIAL_LIBRARY_FILE = path.join(RUN, "material_library.json");
+const MATERIAL_DB_FILE = path.join(RUN, "ecutauto.db");
 const PORT = 8787;
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
@@ -224,17 +226,6 @@ function normalizeMaterialRoots(data) {
   return roots;
 }
 
-async function readMaterialRoots() {
-  return normalizeMaterialRoots(await readJsonFile(MATERIAL_LIBRARY_FILE));
-}
-
-async function saveMaterialRoots(roots) {
-  await mkdir(RUN, { recursive: true });
-  const normalized = normalizeMaterialRoots({ roots });
-  await writeFile(MATERIAL_LIBRARY_FILE, JSON.stringify({ roots: normalized }, null, 2));
-  return normalized;
-}
-
 async function inspectMaterialItem(file, rootPath, category) {
   const info = await stat(file);
   const isVideo = isVideoMaterialFile(file);
@@ -261,20 +252,87 @@ async function inspectMaterialItem(file, rootPath, category) {
   };
 }
 
-async function inspectMaterialRoot(root) {
-  const exists = existsSync(root.path);
-  const base = {
-    ...root,
-    name: path.basename(root.path) || root.path,
-    categoryLabel: MATERIAL_CATEGORY_LABELS[root.category],
-    exists,
-    count: 0,
-    videoCount: 0,
-    audioCount: 0,
-    durationSec: 0,
-    items: [],
+let materialDb = null;
+let materialDbMigrated = false;
+
+function getMaterialDb() {
+  if (materialDb) return materialDb;
+  mkdirSync(RUN, { recursive: true });
+  materialDb = new Database(MATERIAL_DB_FILE);
+  materialDb.pragma("journal_mode = WAL");
+  materialDb.pragma("foreign_keys = ON");
+  materialDb.exec(`
+    CREATE TABLE IF NOT EXISTS material_sources (
+      path TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      added_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_scanned_at TEXT,
+      exists_flag INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS material_items (
+      root_path TEXT NOT NULL,
+      path TEXT NOT NULL,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      size INTEGER,
+      modified_at TEXT,
+      duration_sec REAL,
+      width INTEGER,
+      height INTEGER,
+      orientation TEXT,
+      has_audio INTEGER,
+      valid INTEGER NOT NULL DEFAULT 1,
+      scanned_at TEXT NOT NULL,
+      PRIMARY KEY (root_path, path),
+      FOREIGN KEY (root_path) REFERENCES material_sources(path) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_material_items_root ON material_items(root_path);
+    CREATE INDEX IF NOT EXISTS idx_material_items_kind ON material_items(kind);
+    CREATE INDEX IF NOT EXISTS idx_material_items_orientation ON material_items(orientation);
+  `);
+  return materialDb;
+}
+
+function materialSourceRow(row) {
+  return {
+    path: row.path,
+    category: normalizeMaterialCategory(row.category),
+    addedAt: row.added_at,
   };
-  if (!exists) return base;
+}
+
+function upsertMaterialSourceRow(root) {
+  const db = getMaterialDb();
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO material_sources (path, category, added_at, updated_at, exists_flag)
+    VALUES (@path, @category, @addedAt, @updatedAt, @existsFlag)
+    ON CONFLICT(path) DO UPDATE SET
+      category = excluded.category,
+      updated_at = excluded.updated_at,
+      exists_flag = excluded.exists_flag
+  `).run({
+    path: root.path,
+    category: normalizeMaterialCategory(root.category),
+    addedAt: root.addedAt || now,
+    updatedAt: now,
+    existsFlag: existsSync(root.path) ? 1 : 0,
+  });
+}
+
+async function scanMaterialRoot(rootPath) {
+  const db = getMaterialDb();
+  const source = db.prepare("SELECT * FROM material_sources WHERE path = ?").get(rootPath);
+  if (!source) throw new Error("素材源不存在");
+  const root = materialSourceRow(source);
+  const now = new Date().toISOString();
+  if (!existsSync(root.path)) {
+    db.prepare("UPDATE material_sources SET exists_flag = 0, last_scanned_at = ?, updated_at = ? WHERE path = ?").run(now, now, root.path);
+    db.prepare("UPDATE material_items SET valid = 0, scanned_at = ? WHERE root_path = ?").run(now, root.path);
+    return;
+  }
+
   const files = await collectMaterialFiles(root.path);
   let next = 0;
   const workerCount = Math.min(8, files.length);
@@ -300,12 +358,89 @@ async function inspectMaterialRoot(root) {
   }
   await Promise.all(Array.from({ length: workerCount }, worker));
   items.sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"));
-  base.items = items;
-  base.count = items.length;
-  base.videoCount = items.filter((item) => item.kind === "video").length;
-  base.audioCount = items.filter((item) => item.kind === "audio").length;
-  base.durationSec = items.reduce((sum, item) => sum + (Number(item.durationSec) || 0), 0);
-  return base;
+
+  const tx = db.transaction((nextItems) => {
+    db.prepare("UPDATE material_sources SET exists_flag = 1, last_scanned_at = ?, updated_at = ? WHERE path = ?").run(now, now, root.path);
+    db.prepare("DELETE FROM material_items WHERE root_path = ?").run(root.path);
+    const insert = db.prepare(`
+      INSERT INTO material_items (
+        root_path, path, name, kind, size, modified_at, duration_sec,
+        width, height, orientation, has_audio, valid, scanned_at
+      ) VALUES (
+        @rootPath, @path, @name, @kind, @size, @modifiedAt, @durationSec,
+        @width, @height, @orientation, @hasAudio, @valid, @scannedAt
+      )
+    `);
+    for (const item of nextItems) {
+      insert.run({
+        rootPath: root.path,
+        path: item.path,
+        name: item.name,
+        kind: item.kind,
+        size: item.size ?? null,
+        modifiedAt: item.modifiedAt ?? null,
+        durationSec: item.durationSec ?? null,
+        width: item.width ?? null,
+        height: item.height ?? null,
+        orientation: item.orientation ?? "unknown",
+        hasAudio: item.hasAudio === undefined ? null : item.hasAudio ? 1 : 0,
+        valid: item.valid ? 1 : 0,
+        scannedAt: now,
+      });
+    }
+  });
+  tx(items);
+}
+
+async function ensureMaterialDbReady() {
+  const db = getMaterialDb();
+  if (materialDbMigrated) return;
+  materialDbMigrated = true;
+  const count = db.prepare("SELECT COUNT(*) AS count FROM material_sources").get().count;
+  if (count > 0 || !existsSync(MATERIAL_LIBRARY_FILE)) return;
+  const roots = normalizeMaterialRoots(await readJsonFile(MATERIAL_LIBRARY_FILE));
+  for (const root of roots) upsertMaterialSourceRow(root);
+  for (const root of roots) {
+    if (existsSync(root.path)) await scanMaterialRoot(root.path);
+  }
+}
+
+async function addMaterialSource(inputPath, category = "raw", options = {}) {
+  await ensureMaterialDbReady();
+  const rawPath = String(inputPath || "").trim();
+  if (!rawPath) throw new Error("请填写素材路径");
+  const target = path.resolve(rawPath);
+  if (!existsSync(target)) throw new Error("素材路径不存在");
+  const info = await stat(target);
+  if (!info.isDirectory() && !isMaterialFile(target)) throw new Error("素材路径必须是文件夹、视频文件或音频文件");
+  upsertMaterialSourceRow({
+    path: target,
+    category: normalizeMaterialCategory(category),
+    addedAt: options.addedAt || new Date().toISOString(),
+  });
+  if (options.scan !== false) await scanMaterialRoot(target);
+  return target;
+}
+
+async function removeMaterialSource(inputPath) {
+  await ensureMaterialDbReady();
+  const target = path.resolve(String(inputPath || "").trim());
+  const db = getMaterialDb();
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM material_items WHERE root_path = ?").run(target);
+    db.prepare("DELETE FROM material_sources WHERE path = ?").run(target);
+  });
+  tx();
+}
+
+async function refreshMaterialSources(inputPath = "") {
+  await ensureMaterialDbReady();
+  const target = String(inputPath || "").trim() ? path.resolve(String(inputPath).trim()) : "";
+  const roots = target
+    ? getMaterialDb().prepare("SELECT path FROM material_sources WHERE path = ?").all(target)
+    : getMaterialDb().prepare("SELECT path FROM material_sources ORDER BY added_at DESC, path ASC").all();
+  if (target && !roots.length) throw new Error("素材源不存在");
+  for (const root of roots) await scanMaterialRoot(root.path);
 }
 
 async function rememberExportRoot(root) {
@@ -1024,11 +1159,7 @@ async function apiSegments(req, res) {
       force,
       onEvent: send,
     });
-    const materialRoots = await readMaterialRoots();
-    const existingMaterialRoot = materialRoots.find((item) => item.path === exportBatch.batchDir);
-    if (existingMaterialRoot) existingMaterialRoot.category = "segments";
-    else materialRoots.push({ path: exportBatch.batchDir, category: "segments", addedAt: new Date().toISOString() });
-    await saveMaterialRoots(materialRoots);
+    await addMaterialSource(exportBatch.batchDir, "segments");
     send({
       type: "done",
       engine: library.engine,
@@ -1135,11 +1266,54 @@ async function apiExportRoots(req, res) {
 }
 
 async function materialLibraryPayload() {
-  const sourceRoots = await readMaterialRoots();
-  const roots = [];
-  for (const root of sourceRoots) {
-    roots.push(await inspectMaterialRoot(root));
+  await ensureMaterialDbReady();
+  const db = getMaterialDb();
+  const sourceRows = db.prepare("SELECT * FROM material_sources ORDER BY added_at DESC, path ASC").all();
+  const itemRows = db.prepare("SELECT * FROM material_items WHERE valid = 1 ORDER BY name ASC, path ASC").all();
+  const itemsByRoot = new Map();
+  for (const row of itemRows) {
+    if (!itemsByRoot.has(row.root_path)) itemsByRoot.set(row.root_path, []);
+    itemsByRoot.get(row.root_path).push(row);
   }
+  const roots = sourceRows.map((row) => {
+    const exists = existsSync(row.path);
+    if (Boolean(row.exists_flag) !== exists) {
+      db.prepare("UPDATE material_sources SET exists_flag = ?, updated_at = ? WHERE path = ?")
+        .run(exists ? 1 : 0, new Date().toISOString(), row.path);
+    }
+    const category = normalizeMaterialCategory(row.category);
+    const rootItems = exists ? (itemsByRoot.get(row.path) ?? []).map((item) => ({
+      name: item.name,
+      path: item.path,
+      url: runFileUrl(item.path),
+      rootPath: item.root_path,
+      category,
+      categoryLabel: MATERIAL_CATEGORY_LABELS[category],
+      kind: item.kind,
+      size: item.size ?? undefined,
+      modifiedAt: item.modified_at ?? undefined,
+      durationSec: item.duration_sec ?? undefined,
+      width: item.width ?? undefined,
+      height: item.height ?? undefined,
+      orientation: item.orientation ?? "unknown",
+      hasAudio: item.has_audio === null ? undefined : Boolean(item.has_audio),
+      valid: Boolean(item.valid),
+    })) : [];
+    return {
+      path: row.path,
+      category,
+      addedAt: row.added_at,
+      name: path.basename(row.path) || row.path,
+      categoryLabel: MATERIAL_CATEGORY_LABELS[category],
+      exists,
+      count: rootItems.length,
+      videoCount: rootItems.filter((item) => item.kind === "video").length,
+      audioCount: rootItems.filter((item) => item.kind === "audio").length,
+      durationSec: rootItems.reduce((sum, item) => sum + (Number(item.durationSec) || 0), 0),
+      lastScannedAt: row.last_scanned_at ?? "",
+      items: rootItems,
+    };
+  });
   const items = roots.flatMap((root) => root.items);
   return {
     roots,
@@ -1158,23 +1332,17 @@ async function materialLibraryPayload() {
 async function apiMaterialLibrary(req, res) {
   try {
     if (req.method === "POST") {
-      const { path: inputPath, category = "raw", remove = false } = await readBody(req);
+      const { path: inputPath = "", category = "raw", remove = false, refresh = false } = await readBody(req);
       const rawPath = String(inputPath || "").trim();
-      if (!rawPath) throw new Error("请填写素材路径");
-      const target = path.resolve(rawPath);
-      let roots = await readMaterialRoots();
       if (remove) {
-        roots = roots.filter((item) => item.path !== target);
+        if (!rawPath) throw new Error("请填写素材路径");
+        await removeMaterialSource(rawPath);
+      } else if (refresh) {
+        await refreshMaterialSources(rawPath);
       } else {
-        if (!existsSync(target)) throw new Error("素材路径不存在");
-        const info = await stat(target);
-        if (!info.isDirectory() && !isMaterialFile(target)) throw new Error("素材路径必须是文件夹、视频文件或音频文件");
-        const nextCategory = normalizeMaterialCategory(category);
-        const existing = roots.find((item) => item.path === target);
-        if (existing) existing.category = nextCategory;
-        else roots.push({ path: target, category: nextCategory, addedAt: new Date().toISOString() });
+        if (!rawPath) throw new Error("请填写素材路径");
+        await addMaterialSource(rawPath, category);
       }
-      await saveMaterialRoots(roots);
     }
     const payload = await materialLibraryPayload();
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });

@@ -578,6 +578,20 @@ export async function saveMaterialSource(
   return readJson<MaterialLibraryData>(resp, "素材仓库保存接口未返回数据");
 }
 
+export async function refreshMaterialLibrary(path = ""): Promise<MaterialLibraryData> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/material-library", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path, refresh: true }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<MaterialLibraryData>(resp, "素材仓库刷新接口未返回数据");
+}
+
 export async function saveExportRoot(path: string, remove = false): Promise<{ roots: string[] }> {
   let resp: Response;
   try {

@@ -1,10 +1,11 @@
 // SmartMix.tsx — AI 智能混剪三栏页（按截图复刻 + 接后端混剪管线）
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ModuleDef } from "../data/modules";
-import { inspectMaterials, listMaterialLibrary, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MaterialLibraryRoot, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
+import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MaterialLibraryRoot, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
 import { Group, Field, Slider } from "../components/controls";
 import { DEFAULT_VIDEO_PROCESSING, VideoProcessingSettings } from "../components/VideoProcessingSettings";
 import { ExportTaskDrawer, type ExportTaskItem } from "../components/ExportTaskDrawer";
+import { MaterialSourcePicker } from "../components/MaterialSourcePicker";
 import voiceRaw from "../../voice.json?raw";
 
 const PRESET_COLORS = ["random", "#fff", "#f2c14e", "#ef5777", "#3b82f6", "#22c55e", "#111", "#f97316", "#10b981", "#ec4899", "#60a5fa", "#84cc16"];
@@ -889,8 +890,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [folderInfo, setFolderInfo] = useState<MaterialFolderInfo | null>(null);
   const [selectedClip, setSelectedClip] = useState<MaterialClip | null>(null);
   const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
-  const [materialRoots, setMaterialRoots] = useState<MaterialLibraryRoot[]>([]);
-  const [materialPickerStatus, setMaterialPickerStatus] = useState("");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -1056,16 +1055,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
 
   const openMaterialPicker = async () => {
     setMaterialPickerOpen(true);
-    setMaterialPickerStatus("正在读取素材仓库…");
-    try {
-      const library = await listMaterialLibrary();
-      const roots = library.roots.filter((root) => root.exists && root.videoCount > 0);
-      setMaterialRoots(roots);
-      setMaterialPickerStatus(roots.length ? `可用素材源 ${roots.length} 个` : "素材仓库里还没有可用视频素材源");
-    } catch (err) {
-      setMaterialRoots([]);
-      setMaterialPickerStatus("读取素材仓库失败：" + (err as Error).message);
-    }
   };
 
   const chooseMaterialRoot = async (root: MaterialLibraryRoot) => {
@@ -2387,38 +2376,12 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
           </div>
         </div>
       ) : null}
-      {materialPickerOpen ? (
-        <div className="copy-modal-backdrop" onMouseDown={() => setMaterialPickerOpen(false)}>
-          <div className="material-picker-modal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="copy-modal-h">
-              <div>
-                <b>选择素材来源</b>
-                <span>{materialPickerStatus}</span>
-              </div>
-              <button className="icon-btn" type="button" onClick={() => setMaterialPickerOpen(false)}>×</button>
-            </div>
-            <div className="material-picker-summary">
-              <span>仅显示包含视频的素材源</span>
-              <b>{materialRoots.reduce((sum, root) => sum + root.videoCount, 0)} 个视频</b>
-            </div>
-            <div className="material-picker-list">
-              {materialRoots.length ? materialRoots.map((root) => (
-                <button className="material-picker-row" type="button" key={root.path} onClick={() => chooseMaterialRoot(root)} title={root.path}>
-                  <div className="material-picker-row-main">
-                    <span className="material-picker-chip">{root.categoryLabel}</span>
-                    <b>{root.name}</b>
-                    <span>{root.videoCount} 个视频 · {root.audioCount} 个音频 · {Math.round(root.durationSec || 0)} 秒</span>
-                  </div>
-                  <em>{root.path}</em>
-                  <strong>选择</strong>
-                </button>
-              )) : (
-                <div className="task-empty">请先在素材仓库添加包含视频的素材源</div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <MaterialSourcePicker
+        open={materialPickerOpen}
+        defaultCategory={isSmartMixModule ? "segments" : "all"}
+        onSelect={chooseMaterialRoot}
+        onClose={() => setMaterialPickerOpen(false)}
+      />
       <ExportTaskDrawer
         open={taskOpen}
         title={isSmartMixModule ? "AI 智能混剪导出" : "视频混剪导出"}

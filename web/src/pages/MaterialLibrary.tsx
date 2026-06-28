@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ModuleDef } from "../data/modules";
 import {
   listMaterialLibrary,
+  refreshMaterialLibrary,
   saveMaterialSource,
   type MaterialLibraryCategory,
   type MaterialLibraryData,
@@ -65,10 +66,10 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
   const [orientationFilter, setOrientationFilter] = useState<"all" | "portrait" | "landscape" | "square">("all");
   const [query, setQuery] = useState("");
 
-  const refresh = async () => {
-    setStatus("正在读取素材仓库…");
+  const refresh = async (rescan = false) => {
+    setStatus(rescan ? "正在刷新素材索引…" : "正在读取素材仓库…");
     try {
-      const next = await listMaterialLibrary();
+      const next = rescan ? await refreshMaterialLibrary() : await listMaterialLibrary();
       setData(next);
       const nextRoot = selectedRootFrom(next, selectedRootPath);
       setSelectedRootPath(nextRoot?.path ?? "");
@@ -161,7 +162,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
           ))}
         </div>
         <button className="icon-btn text-btn" type="button" onClick={addSource}>添加素材源</button>
-        <button className="import-btn" type="button" onClick={refresh}>刷新</button>
+        <button className="import-btn" type="button" onClick={() => refresh(true)}>刷新索引</button>
       </div>
 
       <div className={`material-page ${selectedItem ? "has-preview" : "no-preview"}`}>

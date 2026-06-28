@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { ModuleDef } from "../data/modules";
-import { inspectMaterials, segmentMaterials, type MaterialFolderInfo, type SegmentClip } from "../api";
+import { inspectMaterials, segmentMaterials, type MaterialFolderInfo, type MaterialLibraryRoot, type SegmentClip } from "../api";
 import { ExportTaskDrawer, type ExportTaskItem } from "../components/ExportTaskDrawer";
+import { MaterialSourcePicker } from "../components/MaterialSourcePicker";
 
 function basename(filePath: string) {
   return filePath.split(/[\\/]/).filter(Boolean).pop() || filePath;
@@ -23,6 +24,7 @@ function HelpTip({ text }: { text: string }) {
 export default function SmartSegment({ mod }: { mod: ModuleDef }) {
   const [folder, setFolder] = useState("");
   const [folderInfo, setFolderInfo] = useState<MaterialFolderInfo | null>(null);
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
   const [segments, setSegments] = useState<SegmentClip[]>([]);
   const [selected, setSelected] = useState<SegmentClip | null>(null);
   const [threshold, setThreshold] = useState(35);
@@ -60,10 +62,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
     }
   };
 
-  const onImport = async () => {
-    const next = prompt("输入素材文件夹或单个视频文件的本机路径", folder);
-    if (next === null) return;
-    const input = next.trim();
+  const importSource = async (input: string) => {
     if (!input) {
       setStatus("请填写素材文件夹或视频文件路径");
       return;
@@ -83,6 +82,17 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
     } catch (err) {
       setStatus("导入失败：" + (err as Error).message);
     }
+  };
+
+  const onImport = async () => {
+    const next = prompt("输入素材文件夹或单个视频文件的本机路径", folder);
+    if (next === null) return;
+    await importSource(next.trim());
+  };
+
+  const chooseMaterialRoot = async (root: MaterialLibraryRoot) => {
+    setMaterialPickerOpen(false);
+    await importSource(root.path);
   };
 
   const clearWorkspace = () => {
@@ -192,6 +202,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
           <div className="box segment-box">
             <div className="box-h">
               <button className="import-btn" type="button" onClick={onImport}>导入素材</button>
+              <button className="icon-btn text-btn" type="button" onClick={() => setMaterialPickerOpen(true)}>素材仓库</button>
               <button className="icon-btn text-btn" type="button" onClick={clearWorkspace} disabled={running || (!folder && !folderInfo && !segments.length)}>清空</button>
             </div>
             {!folderInfo ? (
@@ -344,6 +355,12 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
         manifest={manifest}
         items={taskItems}
         onClose={() => setTaskOpen(false)}
+      />
+      <MaterialSourcePicker
+        open={materialPickerOpen}
+        defaultCategory="raw"
+        onSelect={chooseMaterialRoot}
+        onClose={() => setMaterialPickerOpen(false)}
       />
     </div>
   );
