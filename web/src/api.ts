@@ -255,6 +255,55 @@ export interface ExportLibrary {
   dates: ExportDateGroup[];
 }
 
+export type MaterialLibraryCategory = "raw" | "segments" | "reuse" | "audio";
+export type MaterialLibraryKind = "video" | "audio";
+export type MaterialLibraryOrientation = "portrait" | "landscape" | "square" | "unknown" | "audio";
+
+export interface MaterialLibraryItem {
+  name: string;
+  path: string;
+  url: string;
+  rootPath: string;
+  category: MaterialLibraryCategory;
+  categoryLabel: string;
+  kind: MaterialLibraryKind;
+  size?: number;
+  modifiedAt?: string;
+  durationSec?: number;
+  width?: number;
+  height?: number;
+  orientation?: MaterialLibraryOrientation;
+  hasAudio?: boolean;
+  valid: boolean;
+}
+
+export interface MaterialLibraryRoot {
+  path: string;
+  name: string;
+  category: MaterialLibraryCategory;
+  categoryLabel: string;
+  addedAt: string;
+  exists: boolean;
+  count: number;
+  videoCount: number;
+  audioCount: number;
+  durationSec: number;
+  items: MaterialLibraryItem[];
+}
+
+export interface MaterialLibraryData {
+  roots: MaterialLibraryRoot[];
+  items: MaterialLibraryItem[];
+  totals: {
+    roots: number;
+    validRoots: number;
+    items: number;
+    videos: number;
+    audios: number;
+    durationSec: number;
+  };
+}
+
 export type SegmentEvent =
   | { type: "start"; clips: string[]; total: number }
   | { type: "segment_log"; msg: string }
@@ -268,6 +317,7 @@ export type SegmentEvent =
     reused: boolean;
     manifest: string;
     exportDir?: string;
+    materialLibraryPath?: string;
     segments: SegmentClip[];
   };
 
@@ -498,6 +548,34 @@ export async function listExports(): Promise<ExportLibrary> {
     throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
   }
   return readJson<ExportLibrary>(resp, "导出目录接口未返回数据");
+}
+
+export async function listMaterialLibrary(): Promise<MaterialLibraryData> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/material-library");
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<MaterialLibraryData>(resp, "素材仓库接口未返回数据");
+}
+
+export async function saveMaterialSource(
+  path: string,
+  category: MaterialLibraryCategory = "raw",
+  remove = false,
+): Promise<MaterialLibraryData> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/material-library", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path, category, remove }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<MaterialLibraryData>(resp, "素材仓库保存接口未返回数据");
 }
 
 export async function saveExportRoot(path: string, remove = false): Promise<{ roots: string[] }> {

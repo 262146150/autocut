@@ -38,6 +38,9 @@ export const CATS: Record<string, ModuleDef[]> = {
       tags: ["视频切片", "直播切片", "精华提取", "AI筛选"] },
   ],
   效率工具: [
+    { id: "material-library", icon: "layers", name: "素材仓库", ready: true,
+      desc: "管理本地素材源，查看原始素材、分割片段、成品复用和音频素材，供混剪与 AI 智能混剪复用。",
+      tags: ["素材管理", "本地目录", "分割片段", "素材预览"] },
     { id: "export-library", icon: "video", name: "产出记录", ready: true,
       desc: "浏览本地导出目录，按日期、批次和视频查看成片，并在工作台内直接预览。",
       tags: ["产出记录", "本地目录", "视频预览"] },

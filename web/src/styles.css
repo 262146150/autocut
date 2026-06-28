@@ -442,7 +442,7 @@ select:focus-visible {
   align-items: center;
 }
 
-/* 左：素材库 */
+/* 左：素材 */
 .import-btn {
   color: var(--mint-d);
   background: var(--mint-bg);
@@ -1544,6 +1544,134 @@ select:focus-visible {
   padding: 12px 18px;
   display: flex;
   justify-content: flex-end;
+}
+
+.material-picker-modal {
+  width: min(780px, 92vw);
+  height: min(640px, 84vh);
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 54px rgba(16, 24, 32, .2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.material-picker-summary {
+  flex: none;
+  margin: 12px 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafb;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.material-picker-summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.material-picker-summary b {
+  color: var(--mint-d);
+  font-size: 12px;
+}
+
+.material-picker-list {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  overflow: auto;
+}
+
+.material-picker-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 11px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 12px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--muted);
+}
+
+.material-picker-row:hover {
+  border-color: var(--mint-bd);
+  background: #f7fbfa;
+}
+
+.material-picker-row-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.material-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--mint-bg);
+  color: var(--mint-d) !important;
+  font-size: 11px !important;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.material-picker-row-main>span:not(.material-picker-chip) {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-picker-row b {
+  color: var(--ink);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-picker-row span,
+.material-picker-row em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.material-picker-row em {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-picker-row strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  border: 1px solid var(--mint-bd);
+  border-radius: 7px;
+  background: var(--mint-bg);
+  color: var(--mint-d);
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .voice-avatar-small {
@@ -3346,6 +3474,186 @@ input.inp {
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: break-all;
+}
+
+/* 素材仓库 */
+.material-add-mode {
+  max-width: min(480px, 42vw);
+  overflow-x: auto;
+}
+
+.material-page {
+  display: grid;
+  grid-template-columns: minmax(680px, 1fr) minmax(380px, .44fr);
+  gap: 12px;
+  padding: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.material-page.no-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.material-browser {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+}
+
+.material-browser .box-h {
+  justify-content: space-between;
+}
+
+.material-filters {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.material-filters .mini-seg {
+  flex: none;
+}
+
+.material-search {
+  flex: 1 1 180px;
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.material-columns {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px minmax(440px, 1fr);
+  overflow: hidden;
+  background: #fff;
+}
+
+.material-column {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+}
+
+.material-column:last-child {
+  border-right: none;
+}
+
+.material-root-row {
+  flex: 0 0 auto;
+  position: relative;
+  border-bottom: 1px solid #f0f2f4;
+}
+
+.material-root-row .export-column-row {
+  border-bottom: none;
+  padding-right: 42px;
+}
+
+.material-item-row {
+  flex: 0 0 auto;
+  border: none;
+  border-bottom: 1px solid #f0f2f4;
+  background: #fff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: var(--muted);
+}
+
+.material-item-row:hover {
+  background: #f6f9fb;
+}
+
+.material-item-row.active {
+  background: #dff4ef;
+  color: var(--mint-d);
+}
+
+.material-item-row span {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-item-row.active span {
+  color: var(--mint-d);
+}
+
+.material-item-row em {
+  grid-column: 1 / -1;
+  color: var(--faint);
+  font-style: normal;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-item-row b {
+  color: var(--faint);
+  min-width: 72px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.material-main {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.material-player {
+  flex: 0 0 min(48%, 420px);
+  min-height: 220px;
+  border-radius: 8px;
+  background: #0c0d10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.material-player video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  background: #000;
+  border-radius: 6px;
+}
+
+.material-player audio {
+  width: min(100%, 420px);
 }
 
 @media (max-width: 1280px) {

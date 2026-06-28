@@ -6,7 +6,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, rm } from "../poc/pipeline.mjs";
+import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, hasAudioStream, rm } from "../poc/pipeline.mjs";
 import { rewriteCopy } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
 import { buildSmartMaterialIndex, rankClipsForPrompt } from "./smart_match.mjs";
@@ -17,6 +17,7 @@ const DIST = path.join(__dir, "dist");
 const RUN = path.resolve(__dir, "_run");
 const CACHE = path.resolve(__dir, "_cache");
 const EXPORT_ROOTS_FILE = path.join(RUN, "export_roots.json");
+const MATERIAL_LIBRARY_FILE = path.join(RUN, "material_library.json");
 const PORT = 8787;
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
@@ -156,6 +157,155 @@ async function saveExportRoots(roots) {
   const custom = uniqPaths(roots).filter((item) => item !== defaultRoot);
   await writeFile(EXPORT_ROOTS_FILE, JSON.stringify({ roots: custom }, null, 2));
   return [defaultRoot, ...custom];
+}
+
+const MATERIAL_CATEGORY_LABELS = {
+  raw: "原始素材",
+  segments: "分割片段",
+  reuse: "成品复用",
+  audio: "音频素材",
+};
+
+function normalizeMaterialCategory(value) {
+  const key = String(value || "").trim();
+  return MATERIAL_CATEGORY_LABELS[key] ? key : "raw";
+}
+
+function isAudioFile(file) {
+  return /\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(file);
+}
+
+function isVideoMaterialFile(file) {
+  return /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(file);
+}
+
+function isMaterialFile(file) {
+  return isVideoMaterialFile(file) || isAudioFile(file);
+}
+
+async function collectMaterialFiles(input) {
+  const info = await stat(input);
+  if (info.isFile()) return isMaterialFile(input) ? [input] : [];
+
+  const out = [];
+  async function walk(current) {
+    const ents = await readdir(current, { withFileTypes: true });
+    for (const ent of ents) {
+      if (ent.name.startsWith(".")) continue;
+      const file = path.join(current, ent.name);
+      if (ent.isDirectory()) {
+        await walk(file);
+      } else if (isMaterialFile(ent.name)) {
+        out.push(file);
+      }
+    }
+  }
+  await walk(input);
+  return out.sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+}
+
+function normalizeMaterialRoots(data) {
+  const raw = Array.isArray(data) ? data : Array.isArray(data?.roots) ? data.roots : [];
+  const seen = new Set();
+  const roots = [];
+  for (const item of raw) {
+    const source = typeof item === "string" ? { path: item } : item ?? {};
+    const rawPath = String(source.path || "").trim();
+    if (!rawPath) continue;
+    const abs = path.resolve(rawPath);
+    if (seen.has(abs)) continue;
+    seen.add(abs);
+    roots.push({
+      path: abs,
+      category: normalizeMaterialCategory(source.category),
+      addedAt: source.addedAt || new Date().toISOString(),
+    });
+  }
+  return roots;
+}
+
+async function readMaterialRoots() {
+  return normalizeMaterialRoots(await readJsonFile(MATERIAL_LIBRARY_FILE));
+}
+
+async function saveMaterialRoots(roots) {
+  await mkdir(RUN, { recursive: true });
+  const normalized = normalizeMaterialRoots({ roots });
+  await writeFile(MATERIAL_LIBRARY_FILE, JSON.stringify({ roots: normalized }, null, 2));
+  return normalized;
+}
+
+async function inspectMaterialItem(file, rootPath, category) {
+  const info = await stat(file);
+  const isVideo = isVideoMaterialFile(file);
+  const durationSec = await probeDuration(file);
+  const size = isVideo ? await probeVideoSize(file) : null;
+  const orientation = isVideo ? classifyVideoSize(size) : "audio";
+  const audio = isVideo ? await hasAudioStream(file) : true;
+  return {
+    name: path.basename(file),
+    path: file,
+    url: runFileUrl(file),
+    rootPath,
+    category,
+    categoryLabel: MATERIAL_CATEGORY_LABELS[category],
+    kind: isVideo ? "video" : "audio",
+    size: info.size,
+    modifiedAt: info.mtime.toISOString(),
+    durationSec,
+    width: size?.width,
+    height: size?.height,
+    orientation,
+    hasAudio: audio,
+    valid: true,
+  };
+}
+
+async function inspectMaterialRoot(root) {
+  const exists = existsSync(root.path);
+  const base = {
+    ...root,
+    name: path.basename(root.path) || root.path,
+    categoryLabel: MATERIAL_CATEGORY_LABELS[root.category],
+    exists,
+    count: 0,
+    videoCount: 0,
+    audioCount: 0,
+    durationSec: 0,
+    items: [],
+  };
+  if (!exists) return base;
+  const files = await collectMaterialFiles(root.path);
+  let next = 0;
+  const workerCount = Math.min(8, files.length);
+  const items = [];
+  async function worker() {
+    while (next < files.length) {
+      const file = files[next++];
+      try {
+        items.push(await inspectMaterialItem(file, root.path, root.category));
+      } catch {
+        items.push({
+          name: path.basename(file),
+          path: file,
+          url: runFileUrl(file),
+          rootPath: root.path,
+          category: root.category,
+          categoryLabel: MATERIAL_CATEGORY_LABELS[root.category],
+          kind: isAudioFile(file) ? "audio" : "video",
+          valid: false,
+        });
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  items.sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"));
+  base.items = items;
+  base.count = items.length;
+  base.videoCount = items.filter((item) => item.kind === "video").length;
+  base.audioCount = items.filter((item) => item.kind === "audio").length;
+  base.durationSec = items.reduce((sum, item) => sum + (Number(item.durationSec) || 0), 0);
+  return base;
 }
 
 async function rememberExportRoot(root) {
@@ -874,6 +1024,11 @@ async function apiSegments(req, res) {
       force,
       onEvent: send,
     });
+    const materialRoots = await readMaterialRoots();
+    const existingMaterialRoot = materialRoots.find((item) => item.path === exportBatch.batchDir);
+    if (existingMaterialRoot) existingMaterialRoot.category = "segments";
+    else materialRoots.push({ path: exportBatch.batchDir, category: "segments", addedAt: new Date().toISOString() });
+    await saveMaterialRoots(materialRoots);
     send({
       type: "done",
       engine: library.engine,
@@ -881,6 +1036,7 @@ async function apiSegments(req, res) {
       reused: Boolean(library.reused),
       manifest: library.path,
       exportDir: exportBatch.batchDir,
+      materialLibraryPath: exportBatch.batchDir,
       segments: library.segments.map((segment) => ({
         ...segment,
         url: `/api/media?path=${encodeURIComponent(segment.path)}`,
@@ -978,6 +1134,57 @@ async function apiExportRoots(req, res) {
   }
 }
 
+async function materialLibraryPayload() {
+  const sourceRoots = await readMaterialRoots();
+  const roots = [];
+  for (const root of sourceRoots) {
+    roots.push(await inspectMaterialRoot(root));
+  }
+  const items = roots.flatMap((root) => root.items);
+  return {
+    roots,
+    items,
+    totals: {
+      roots: roots.length,
+      validRoots: roots.filter((root) => root.exists).length,
+      items: items.length,
+      videos: items.filter((item) => item.kind === "video").length,
+      audios: items.filter((item) => item.kind === "audio").length,
+      durationSec: items.reduce((sum, item) => sum + (Number(item.durationSec) || 0), 0),
+    },
+  };
+}
+
+async function apiMaterialLibrary(req, res) {
+  try {
+    if (req.method === "POST") {
+      const { path: inputPath, category = "raw", remove = false } = await readBody(req);
+      const rawPath = String(inputPath || "").trim();
+      if (!rawPath) throw new Error("请填写素材路径");
+      const target = path.resolve(rawPath);
+      let roots = await readMaterialRoots();
+      if (remove) {
+        roots = roots.filter((item) => item.path !== target);
+      } else {
+        if (!existsSync(target)) throw new Error("素材路径不存在");
+        const info = await stat(target);
+        if (!info.isDirectory() && !isMaterialFile(target)) throw new Error("素材路径必须是文件夹、视频文件或音频文件");
+        const nextCategory = normalizeMaterialCategory(category);
+        const existing = roots.find((item) => item.path === target);
+        if (existing) existing.category = nextCategory;
+        else roots.push({ path: target, category: nextCategory, addedAt: new Date().toISOString() });
+      }
+      await saveMaterialRoots(roots);
+    }
+    const payload = await materialLibraryPayload();
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify(payload));
+  } catch (e) {
+    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.end(e.message);
+  }
+}
+
 async function apiRewriteCopy(req, res) {
   try {
     const { text } = await readBody(req);
@@ -1014,6 +1221,8 @@ http
       if ((req.method === "GET" || req.method === "HEAD") && req.url.startsWith("/api/media")) return await apiMedia(req, res);
       if (req.method === "GET" && req.url.startsWith("/api/exports")) return await apiExports(req, res);
       if (req.method === "POST" && req.url === "/api/export-roots") return await apiExportRoots(req, res);
+      if (req.method === "GET" && req.url.startsWith("/api/material-library")) return await apiMaterialLibrary(req, res);
+      if (req.method === "POST" && req.url === "/api/material-library") return await apiMaterialLibrary(req, res);
       if (req.method === "POST" && req.url === "/api/materials") return await apiMaterials(req, res);
       if (req.method === "POST" && req.url === "/api/segments") return await apiSegments(req, res);
       if (req.method === "POST" && req.url === "/api/mix") return await apiMix(req, res);

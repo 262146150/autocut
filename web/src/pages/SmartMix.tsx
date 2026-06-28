@@ -1,7 +1,7 @@
 // SmartMix.tsx — AI 智能混剪三栏页（按截图复刻 + 接后端混剪管线）
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ModuleDef } from "../data/modules";
-import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
+import { inspectMaterials, listMaterialLibrary, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MaterialLibraryRoot, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
 import { Group, Field, Slider } from "../components/controls";
 import { DEFAULT_VIDEO_PROCESSING, VideoProcessingSettings } from "../components/VideoProcessingSettings";
 import { ExportTaskDrawer, type ExportTaskItem } from "../components/ExportTaskDrawer";
@@ -888,6 +888,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [folder, setFolder] = useState<string | null>(null);
   const [folderInfo, setFolderInfo] = useState<MaterialFolderInfo | null>(null);
   const [selectedClip, setSelectedClip] = useState<MaterialClip | null>(null);
+  const [materialPickerOpen, setMaterialPickerOpen] = useState(false);
+  const [materialRoots, setMaterialRoots] = useState<MaterialLibraryRoot[]>([]);
+  const [materialPickerStatus, setMaterialPickerStatus] = useState("");
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
@@ -1024,10 +1027,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     }
   };
 
-  const onImport = async () => {
-    const p = prompt("输入素材文件夹的本机路径（留空用测试素材）", "");
-    if (p === null) return;
-    const nextFolder = p.trim() || "__TEST__";
+  const importFolder = async (nextFolder: string, statusLabel = "素材文件夹") => {
     setFolder(nextFolder);
     setFolderInfo(null);
     setSelectedClip(null);
@@ -1036,7 +1036,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setSegmentLibraryState(null);
     setSmartIndexState(null);
     setSmartMatchStates([]);
-    setStatus("正在读取素材文件夹…");
+    setStatus(`正在读取${statusLabel}…`);
     try {
       const info = await inspectMaterials(nextFolder);
       setFolderInfo(info);
@@ -1046,6 +1046,31 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       setFolder(null);
       setStatus("导入失败：" + (err as Error).message);
     }
+  };
+
+  const onImport = async () => {
+    const p = prompt("输入素材文件夹的本机路径（留空用测试素材）", "");
+    if (p === null) return;
+    await importFolder(p.trim() || "__TEST__");
+  };
+
+  const openMaterialPicker = async () => {
+    setMaterialPickerOpen(true);
+    setMaterialPickerStatus("正在读取素材仓库…");
+    try {
+      const library = await listMaterialLibrary();
+      const roots = library.roots.filter((root) => root.exists && root.videoCount > 0);
+      setMaterialRoots(roots);
+      setMaterialPickerStatus(roots.length ? `可用素材源 ${roots.length} 个` : "素材仓库里还没有可用视频素材源");
+    } catch (err) {
+      setMaterialRoots([]);
+      setMaterialPickerStatus("读取素材仓库失败：" + (err as Error).message);
+    }
+  };
+
+  const chooseMaterialRoot = async (root: MaterialLibraryRoot) => {
+    setMaterialPickerOpen(false);
+    await importFolder(root.path, root.categoryLabel);
   };
 
   const onClearFolder = () => {
@@ -1737,11 +1762,12 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         </div>
       </div>
       <div className="mod">
-        {/* 左：素材库 */}
+        {/* 左：素材 */}
         <div className="col">
           <div className="box" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
             <div className="box-h">
               <button className="import-btn" onClick={onImport}>导入文件夹</button>
+              <button className="icon-btn text-btn" type="button" onClick={openMaterialPicker}>素材仓库</button>
               <div className="r">
                 <button className="icon-btn text-btn" type="button" onClick={onClearFolder} disabled={running || (!folder && !folderInfo)}>清空</button>
               </div>
@@ -2357,6 +2383,38 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             )}
             <div className="copy-modal-actions">
               <button className="import-btn" type="button" onClick={() => setCopyAudioEditorOpen(false)}>完成</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {materialPickerOpen ? (
+        <div className="copy-modal-backdrop" onMouseDown={() => setMaterialPickerOpen(false)}>
+          <div className="material-picker-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="copy-modal-h">
+              <div>
+                <b>选择素材来源</b>
+                <span>{materialPickerStatus}</span>
+              </div>
+              <button className="icon-btn" type="button" onClick={() => setMaterialPickerOpen(false)}>×</button>
+            </div>
+            <div className="material-picker-summary">
+              <span>仅显示包含视频的素材源</span>
+              <b>{materialRoots.reduce((sum, root) => sum + root.videoCount, 0)} 个视频</b>
+            </div>
+            <div className="material-picker-list">
+              {materialRoots.length ? materialRoots.map((root) => (
+                <button className="material-picker-row" type="button" key={root.path} onClick={() => chooseMaterialRoot(root)} title={root.path}>
+                  <div className="material-picker-row-main">
+                    <span className="material-picker-chip">{root.categoryLabel}</span>
+                    <b>{root.name}</b>
+                    <span>{root.videoCount} 个视频 · {root.audioCount} 个音频 · {Math.round(root.durationSec || 0)} 秒</span>
+                  </div>
+                  <em>{root.path}</em>
+                  <strong>选择</strong>
+                </button>
+              )) : (
+                <div className="task-empty">请先在素材仓库添加包含视频的素材源</div>
+              )}
             </div>
           </div>
         </div>

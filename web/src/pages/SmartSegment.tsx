@@ -155,8 +155,9 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
           setSegments(event.segments);
           setSelected(event.segments[0] ?? null);
           setProgress(100);
-          setStatus(`${event.reused ? "复用片段库" : "分割完成"}，共 ${event.segments.length} 个片段`);
-          addTaskLog(`${event.reused ? "复用片段库" : "分割完成"}，共 ${event.segments.length} 个片段`);
+          const librarySaved = event.materialLibraryPath ? "，已加入素材仓库" : "";
+          setStatus(`${event.reused ? "复用片段库" : "分割完成"}，共 ${event.segments.length} 个片段${librarySaved}`);
+          addTaskLog(`${event.reused ? "复用片段库" : "分割完成"}，共 ${event.segments.length} 个片段${librarySaved}`);
           setTaskItems(event.segments.map((segment, index) => ({
             id: segment.id || `segment-${index + 1}`,
             name: segment.name,

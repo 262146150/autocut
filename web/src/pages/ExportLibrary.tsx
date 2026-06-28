@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleDef } from "../data/modules";
-import { listExports, saveExportRoot, type ExportBatchItem, type ExportDateGroup, type ExportLibrary as ExportLibraryData, type ExportVideoItem } from "../api";
+import { listExports, saveExportRoot, saveMaterialSource, type ExportBatchItem, type ExportDateGroup, type ExportLibrary as ExportLibraryData, type ExportVideoItem } from "../api";
 
 function formatBytes(bytes: number) {
   const value = Number(bytes) || 0;
@@ -174,6 +174,26 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     }
   };
 
+  const addSelectedToMaterialLibrary = async () => {
+    if (!selectedVideo) return;
+    try {
+      await saveMaterialSource(selectedVideo.path, "reuse");
+      setStatus("已加入素材仓库：成品复用");
+    } catch (err) {
+      setStatus("加入素材仓库失败：" + (err as Error).message);
+    }
+  };
+
+  const addBatchToMaterialLibrary = async () => {
+    if (!selectedBatch) return;
+    try {
+      await saveMaterialSource(selectedBatch.dir, "reuse");
+      setStatus("已将批次目录加入素材仓库：成品复用");
+    } catch (err) {
+      setStatus("批次目录加入素材仓库失败：" + (err as Error).message);
+    }
+  };
+
   return (
     <div className="modwrap">
       <div className="modbar">
@@ -276,7 +296,13 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
             <div className="export-status">{status}</div>
             {selectedBatch ? (
               <section className="export-inspector box">
-                <div className="box-h">视频信息</div>
+                <div className="box-h">
+                  <span>视频信息</span>
+                  <div className="r">
+                    <button className="icon-btn text-btn" type="button" onClick={addSelectedToMaterialLibrary}>视频入库</button>
+                    <button className="icon-btn text-btn" type="button" onClick={addBatchToMaterialLibrary}>目录入库</button>
+                  </div>
+                </div>
                 <div className="export-info">
                   <label>
                     <span>文件名</span>
