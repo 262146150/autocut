@@ -2,7 +2,7 @@
 //   开发: 终端1 `node server.mjs`(8787) + 终端2 `pnpm dev`(5173, 自动代理 /api,/_run)
 //   预览构建: `pnpm build` 后 `node server.mjs`，直接访问 http://localhost:8787
 import http from "node:http";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,7 @@ const __dir = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dir, "dist");
 const RUN = path.resolve(__dir, "_run");
 const CACHE = path.resolve(__dir, "_cache");
+const EXPORT_ROOTS_FILE = path.join(RUN, "export_roots.json");
 const PORT = 8787;
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
@@ -113,6 +114,11 @@ function mediaTitle(filePath, fallback) {
   return safeFilename(base, fallback);
 }
 
+function estimateCopyDuration(text) {
+  const chars = Array.from(String(text || "").trim()).length;
+  return Math.max(6, Math.min(60, chars * 0.22));
+}
+
 async function makeUniqueDir(baseDir) {
   let dir = baseDir;
   for (let i = 2; existsSync(dir); i++) {
@@ -122,14 +128,51 @@ async function makeUniqueDir(baseDir) {
   return dir;
 }
 
+function defaultExportRoot() {
+  return path.join(RUN, "exports");
+}
+
+function uniqPaths(items) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const abs = path.resolve(String(item || "").trim());
+    if (!abs || seen.has(abs)) continue;
+    seen.add(abs);
+    out.push(abs);
+  }
+  return out;
+}
+
+async function readExportRoots() {
+  const data = await readJsonFile(EXPORT_ROOTS_FILE);
+  const custom = Array.isArray(data) ? data : Array.isArray(data?.roots) ? data.roots : [];
+  return uniqPaths([defaultExportRoot(), ...custom]);
+}
+
+async function saveExportRoots(roots) {
+  await mkdir(RUN, { recursive: true });
+  const defaultRoot = defaultExportRoot();
+  const custom = uniqPaths(roots).filter((item) => item !== defaultRoot);
+  await writeFile(EXPORT_ROOTS_FILE, JSON.stringify({ roots: custom }, null, 2));
+  return [defaultRoot, ...custom];
+}
+
+async function rememberExportRoot(root) {
+  const abs = path.resolve(root);
+  const roots = await readExportRoots();
+  if (!roots.includes(abs)) await saveExportRoots([...roots, abs]);
+}
+
 async function createExportBatch({ outputDir, modeLabel, taskName }) {
   const root = String(outputDir || "").trim()
     ? path.resolve(String(outputDir).trim())
-    : path.join(RUN, "exports");
+    : defaultExportRoot();
   const ts = timestampParts();
   const dateDir = path.join(root, ts.date);
   const batchName = `${ts.time}_${modeLabel}_${safeFilename(taskName, "未命名任务")}`;
   const batchDir = await makeUniqueDir(path.join(dateDir, batchName));
+  await rememberExportRoot(root);
   return { root, dateDir, batchDir };
 }
 
@@ -138,6 +181,43 @@ function runFileUrl(file) {
   if (abs === RUN || !isInside(RUN, abs)) return `/api/media?path=${encodeURIComponent(abs)}`;
   const rel = path.relative(RUN, abs).split(path.sep).map(encodeURIComponent).join("/");
   return `/_run/${rel}`;
+}
+
+function isExportVideo(file) {
+  return /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(file);
+}
+
+async function readJsonFile(file) {
+  try {
+    return JSON.parse(await readFile(file, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function collectExportVideos(dir) {
+  const videos = [];
+  async function walk(current) {
+    const ents = await readdir(current, { withFileTypes: true });
+    for (const ent of ents) {
+      if (ent.name.startsWith(".")) continue;
+      const file = path.join(current, ent.name);
+      if (ent.isDirectory()) {
+        await walk(file);
+      } else if (isExportVideo(ent.name)) {
+        const info = await stat(file);
+        videos.push({
+          name: ent.name,
+          path: file,
+          url: runFileUrl(file),
+          size: info.size,
+          modifiedAt: info.mtime.toISOString(),
+        });
+      }
+    }
+  }
+  await walk(dir);
+  return videos.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
 }
 
 function splitCopyText(text) {
@@ -217,6 +297,9 @@ async function apiMix(req, res) {
     copyMode = false,
     copyItems = [],
     copyVoice = null,
+    copyVoiceEnabled = true,
+    copyVoiceSpeechRate = 0,
+    copyVoiceLoudnessRate = 0,
     copyVariants = 1,
     copySubtitleEnabled = true,
     copySubtitleStyle = null,
@@ -276,9 +359,10 @@ async function apiMix(req, res) {
         : out;
     if (copyMode && !validCopyItems.length) throw new Error("请先添加文案");
     if (audioMode && !validAudioItems.length) throw new Error("请先添加音频");
-    const speaker = copyMode ? String(copyVoice?.speaker || "").trim() : "";
+    const voiceEnabled = copyMode && copyVoiceEnabled !== false;
+    const speaker = voiceEnabled ? String(copyVoice?.speaker || "").trim() : "";
     const resourceId = copyMode ? String(copyVoice?.resourceId || "").trim() : "";
-    if (copyMode && !speaker) throw new Error("请选择语音合成音色");
+    if (voiceEnabled && !speaker) throw new Error("请选择语音合成音色");
     for (let audioIndex = 0; audioMode && audioIndex < validAudioItems.length; audioIndex++) {
       if (!existsSync(validAudioItems[audioIndex].path)) {
         throw new Error(`音频文件不存在：${validAudioItems[audioIndex].path}`);
@@ -380,6 +464,9 @@ async function apiMix(req, res) {
         bgmVolume,
         out,
         copyVariants,
+        copyVoiceEnabled,
+        copyVoiceSpeechRate,
+        copyVoiceLoudnessRate,
         audioVariants,
         subtitleMode,
         subtitleStyle,
@@ -411,18 +498,26 @@ async function apiMix(req, res) {
         await mkdir(groupDir, { recursive: true });
         await mkdir(assetDir, { recursive: true });
         await writeFile(path.join(assetDir, "copy.txt"), `${item.text}\n`);
-        send({ type: "log", msg: `合成文案 ${copyIndex + 1}/${validCopyItems.length} 语音…` });
-        const ttsFile = path.join(assetDir, "voice.mp3");
-        const tts = await synthesizeSpeech({
-          text: item.text,
-          speaker,
-          resourceId,
-          format: "mp3",
-          sampleRate: 24000,
-          outputPath: ttsFile,
-        });
-        const duration = await probeDuration(tts.path);
-        if (!duration) throw new Error(`文案 ${copyIndex + 1} 语音时长读取失败`);
+        let tts = null;
+        let duration = estimateCopyDuration(item.text);
+        if (voiceEnabled) {
+          send({ type: "log", msg: `合成文案 ${copyIndex + 1}/${validCopyItems.length} 语音…` });
+          const ttsFile = path.join(assetDir, "voice.mp3");
+          tts = await synthesizeSpeech({
+            text: item.text,
+            speaker,
+            resourceId,
+            format: "mp3",
+            sampleRate: 24000,
+            speechRate: copyVoiceSpeechRate,
+            loudnessRate: copyVoiceLoudnessRate,
+            outputPath: ttsFile,
+          });
+          duration = await probeDuration(tts.path);
+          if (!duration) throw new Error(`文案 ${copyIndex + 1} 语音时长读取失败`);
+        } else {
+          send({ type: "log", msg: `文案 ${copyIndex + 1} 未启用语音合成，按 ${duration.toFixed(1)} 秒生成…` });
+        }
         const smartMatch = smartMix ? await rankClipsForPrompt(clips, item.text, { index: smartIndex }) : null;
         if (smartMatch) {
           const topMatches = smartMatch.matches.slice(0, 3).map((match) => `${match.name}(${match.score})`).join("、");
@@ -435,7 +530,7 @@ async function apiMix(req, res) {
           });
           send({ type: "log", msg: `AI匹配文案 ${copyIndex + 1}：${topMatches || smartMatch.engine}` });
         }
-        send({ type: "log", msg: `文案 ${copyIndex + 1} 语音 ${duration.toFixed(1)} 秒，开始混剪…` });
+        send({ type: "log", msg: `文案 ${copyIndex + 1} ${voiceEnabled ? "语音" : "估算"} ${duration.toFixed(1)} 秒，开始混剪…` });
         const results = await runMix({
           clips: smartMatch?.clips ?? clips,
           w,
@@ -460,7 +555,7 @@ async function apiMix(req, res) {
           textOverlays,
           videoProcessing: videoProcessing ?? {},
           targetDurationSec: duration,
-          voiceoverPath: tts.path,
+          voiceoverPath: tts?.path || "",
           voiceVolume,
           fixedFirstEnabled,
           fixedFirstPath,
@@ -483,7 +578,15 @@ async function apiMix(req, res) {
           dir: groupDir,
           assetDir,
           text: item.text,
-          voice: { path: tts.path, durationSec: duration, speaker, resourceId, name: copyVoice?.name || "" },
+          voice: voiceEnabled && tts ? {
+            path: tts.path,
+            durationSec: duration,
+            speaker,
+            resourceId,
+            name: copyVoice?.name || "",
+            speechRate: copyVoiceSpeechRate,
+            loudnessRate: copyVoiceLoudnessRate,
+          } : null,
           smartMatch,
           outputs: results.map((p) => ({ file: path.basename(p), path: p, url: runFileUrl(p) })),
         });
@@ -667,6 +770,7 @@ async function apiSegments(req, res) {
     detectFps = 12,
     cutPaddingSec = 0.35,
     speechProtection = true,
+    segmentMode = "material",
     speechPadSec = 0.2,
     speechMaxShiftSec = 1.5,
     force = false,
@@ -693,6 +797,7 @@ async function apiSegments(req, res) {
       detectFps,
       cutPaddingSec,
       speechProtection,
+      segmentMode,
       speechPadSec,
       speechMaxShiftSec,
       force,
@@ -728,6 +833,80 @@ async function apiMedia(req, res) {
   return await serveFile(req, res, file);
 }
 
+async function apiExports(req, res) {
+  const roots = await readExportRoots();
+  const dates = [];
+  for (const root of roots) {
+    if (!existsSync(root)) continue;
+    const dateNames = (await readdir(root, { withFileTypes: true }))
+      .filter((ent) => ent.isDirectory())
+      .map((ent) => ent.name)
+      .sort((a, b) => b.localeCompare(a));
+    for (const date of dateNames) {
+      const dateDir = path.join(root, date);
+      const batchDirs = (await readdir(dateDir, { withFileTypes: true }))
+        .filter((ent) => ent.isDirectory())
+        .map((ent) => path.join(dateDir, ent.name));
+      const batches = [];
+      for (const dir of batchDirs) {
+        const info = await stat(dir);
+        const manifestPath = path.join(dir, "manifest.json");
+        const manifest = existsSync(manifestPath) ? await readJsonFile(manifestPath) : null;
+        const videos = await collectExportVideos(dir);
+        if (!videos.length && !manifest) continue;
+        batches.push({
+          name: path.basename(dir),
+          dir,
+          createdAt: manifest?.createdAt || info.birthtime.toISOString(),
+          modifiedAt: info.mtime.toISOString(),
+          mode: manifest?.mode || "",
+          modeLabel: manifest?.modeLabel || "未知模式",
+          manifest: existsSync(manifestPath) ? manifestPath : "",
+          videoCount: videos.length,
+          videos,
+        });
+      }
+      batches.sort((a, b) => b.name.localeCompare(a.name));
+      if (batches.length) {
+        dates.push({
+          date,
+          dir: dateDir,
+          root,
+          rootName: path.basename(root) || root,
+          count: batches.reduce((sum, item) => sum + item.videoCount, 0),
+          batches,
+        });
+      }
+    }
+  }
+  dates.sort((a, b) => b.date.localeCompare(a.date) || b.root.localeCompare(a.root));
+  res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+  res.end(JSON.stringify({ root: defaultExportRoot(), roots, dates }));
+}
+
+async function apiExportRoots(req, res) {
+  try {
+    const { path: inputPath, remove = false } = await readBody(req);
+    const rawPath = String(inputPath || "").trim();
+    if (!rawPath) throw new Error("请填写导出目录路径");
+    const target = path.resolve(rawPath);
+    if (target === defaultExportRoot() && remove) throw new Error("默认导出目录不能移除");
+    let roots = await readExportRoots();
+    if (remove) {
+      roots = roots.filter((item) => item !== target);
+    } else {
+      if (!existsSync(target) || !(await stat(target)).isDirectory()) throw new Error("导出目录不存在");
+      roots = [...roots, target];
+    }
+    roots = await saveExportRoots(roots);
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ roots }));
+  } catch (e) {
+    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.end(e.message);
+  }
+}
+
 async function apiRewriteCopy(req, res) {
   try {
     const { text } = await readBody(req);
@@ -742,11 +921,11 @@ async function apiRewriteCopy(req, res) {
 
 async function apiTts(req, res) {
   try {
-    const { text, speaker, resourceId, format = "mp3", sampleRate = 24000 } = await readBody(req);
+    const { text, speaker, resourceId, format = "mp3", sampleRate = 24000, speechRate = 0, loudnessRate = 0 } = await readBody(req);
     const requestedFormat = String(format || "mp3").toLowerCase();
     const ext = ["mp3", "wav", "ogg", "aac"].includes(requestedFormat) ? requestedFormat : "mp3";
     const file = path.join(RUN, "tts", `tts_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`);
-    const result = await synthesizeSpeech({ text, speaker, resourceId, format: ext, sampleRate, outputPath: file });
+    const result = await synthesizeSpeech({ text, speaker, resourceId, format: ext, sampleRate, speechRate, loudnessRate, outputPath: file });
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
     res.end(JSON.stringify({
       ...result,
@@ -762,6 +941,8 @@ http
   .createServer(async (req, res) => {
     try {
       if ((req.method === "GET" || req.method === "HEAD") && req.url.startsWith("/api/media")) return await apiMedia(req, res);
+      if (req.method === "GET" && req.url.startsWith("/api/exports")) return await apiExports(req, res);
+      if (req.method === "POST" && req.url === "/api/export-roots") return await apiExportRoots(req, res);
       if (req.method === "POST" && req.url === "/api/materials") return await apiMaterials(req, res);
       if (req.method === "POST" && req.url === "/api/segments") return await apiSegments(req, res);
       if (req.method === "POST" && req.url === "/api/mix") return await apiMix(req, res);

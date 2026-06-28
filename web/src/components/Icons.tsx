@@ -13,6 +13,7 @@ const PATHS: Record<IconName, JSX.Element> = {
   image: (<><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" strokeWidth="2" /><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" /><path d="M5 18l5-5 4 3 3-2 4 4" fill="none" stroke="currentColor" strokeWidth="2" /></>),
   poster: (<><rect x="4" y="3" width="16" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>),
   mic: (<><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M6 11a6 6 0 0012 0M12 17v4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></>),
+  video: (<><rect x="3" y="6" width="13" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M16 10l5-3v10l-5-3z" fill="currentColor" /></>),
 };
 
 export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {

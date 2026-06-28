@@ -113,18 +113,22 @@ function ControlledSlider({
   value,
   onChange,
   max = 100,
+  min = 0,
   unit = "%",
   display,
+  disabled = false,
 }: {
   value: number;
   onChange: (value: number) => void;
   max?: number;
+  min?: number;
   unit?: string;
   display?: string;
+  disabled?: boolean;
 }) {
   return (
     <>
-      <input type="range" min={0} max={max} value={value} onChange={(e) => onChange(+e.target.value)} />
+      <input type="range" min={min} max={max} value={value} disabled={disabled} onChange={(e) => onChange(+e.target.value)} />
       <span className="val">{display ?? `${value}${unit}`}</span>
     </>
   );
@@ -140,6 +144,10 @@ function basename(filePath: string) {
 
 function previewVolume(value: number) {
   return Math.max(0, Math.min(1, value / 100));
+}
+
+function rateLabel(value: number) {
+  return `${(1 + value / 100).toFixed(1)}x`;
 }
 
 function hexColor(value: string) {
@@ -186,6 +194,12 @@ function BaseSettings({
   onToggleBgmPreview,
   mixMode,
   selectedVoice,
+  copyVoiceEnabled,
+  setCopyVoiceEnabled,
+  copyVoiceSpeechRate,
+  setCopyVoiceSpeechRate,
+  copyVoiceLoudnessRate,
+  setCopyVoiceLoudnessRate,
   onOpenVoicePicker,
   activeTextLabel,
   subtitleText,
@@ -216,6 +230,12 @@ function BaseSettings({
   onToggleBgmPreview: () => void;
   mixMode: MixMode;
   selectedVoice: VoiceSpeaker | null;
+  copyVoiceEnabled: boolean;
+  setCopyVoiceEnabled: (value: boolean) => void;
+  copyVoiceSpeechRate: number;
+  setCopyVoiceSpeechRate: (value: number) => void;
+  copyVoiceLoudnessRate: number;
+  setCopyVoiceLoudnessRate: (value: number) => void;
   onOpenVoicePicker: () => void;
   activeTextLabel: string;
   subtitleText: string;
@@ -275,9 +295,15 @@ function BaseSettings({
           </Field>
         </Group>
       ) : mixMode === "copy" ? (
-        <Group title="语音合成" withSwitch switchOn>
+        <Group title="语音合成">
+          <Field label="启用">
+            <div className="mini-seg compact" style={{ marginLeft: "auto" }}>
+              <button className={copyVoiceEnabled ? "active" : ""} type="button" onClick={() => setCopyVoiceEnabled(true)}>启用</button>
+              <button className={!copyVoiceEnabled ? "active" : ""} type="button" onClick={() => setCopyVoiceEnabled(false)}>不启用</button>
+            </div>
+          </Field>
           <Field>
-            <span className="muted">开始生成时会按每条文案自动合成语音</span>
+            <span className="muted">{copyVoiceEnabled ? "开始生成时会按每条文案自动合成语音" : "关闭后不合成配音，仅按文案估算时长生成视频"}</span>
           </Field>
           <Field>
             <div className="voice-avatar-small">
@@ -289,10 +315,30 @@ function BaseSettings({
                 {selectedVoice ? `${selectedVoice.Gender ?? "未知"} ${selectedVoice.Age ?? ""} · ${voiceCategories(selectedVoice)}` : "请选择音色"}
               </div>
             </div>
-            <button className="icon-btn" type="button" style={{ marginLeft: "auto" }} onClick={onOpenVoicePicker}>⇄</button>
+            <button className="icon-btn" type="button" style={{ marginLeft: "auto" }} disabled={!copyVoiceEnabled} onClick={onOpenVoicePicker}>⇄</button>
           </Field>
-          <Field label="音量调整"><Slider value={200} max={300} /></Field>
-          <Field label="语速调整"><Slider value={100} max={200} display="1.0x" /></Field>
+          <Field label="音量调整">
+            <ControlledSlider
+              value={copyVoiceLoudnessRate}
+              min={-50}
+              max={100}
+              unit=""
+              display={rateLabel(copyVoiceLoudnessRate)}
+              disabled={!copyVoiceEnabled}
+              onChange={setCopyVoiceLoudnessRate}
+            />
+          </Field>
+          <Field label="语速调整">
+            <ControlledSlider
+              value={copyVoiceSpeechRate}
+              min={-50}
+              max={100}
+              unit=""
+              display={rateLabel(copyVoiceSpeechRate)}
+              disabled={!copyVoiceEnabled}
+              onChange={setCopyVoiceSpeechRate}
+            />
+          </Field>
         </Group>
       ) : null}
       <Group title="文本/字幕样式" badge={activeTextLabel}>
@@ -544,7 +590,6 @@ function FolderMixSettings({
           </div>
         </div>
       </div>
-      <button className="apply-all" type="button" disabled>应用到全部文件夹</button>
     </div>
   );
 }
@@ -770,6 +815,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [bgmVolume, setBgmVolume] = useState(30);
   const [bgmPreviewPlaying, setBgmPreviewPlaying] = useState(false);
   const [selectedVoiceType, setSelectedVoiceType] = useState(VOICE_SPEAKERS[0]?.VoiceType ?? "");
+  const [copyVoiceEnabled, setCopyVoiceEnabled] = useState(true);
+  const [copyVoiceSpeechRate, setCopyVoiceSpeechRate] = useState(0);
+  const [copyVoiceLoudnessRate, setCopyVoiceLoudnessRate] = useState(0);
   const [voicePickerOpen, setVoicePickerOpen] = useState(false);
   const [subtitleMode, setSubtitleMode] = useState<SubtitleMode>("off");
   const [copySubtitleEnabled, setCopySubtitleEnabled] = useState(true);
@@ -1153,6 +1201,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         resourceId: voice.ResourceID,
         format: "mp3",
         sampleRate: 24000,
+        speechRate: copyVoiceSpeechRate,
+        loudnessRate: copyVoiceLoudnessRate,
       });
       setCopyItems((items) => items.map((copy) => copy.id === item.id ? {
         ...copy,
@@ -1202,7 +1252,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setSegmentLibraryState(null);
     setSmartIndexState(null);
     setSmartMatchStates([]);
-    setStatus(mixMode === "copy" ? "自动合成语音并生成中…" : mixMode === "audio" ? "按音频时长生成中…" : "生成中…");
+    setStatus(mixMode === "copy" ? (copyVoiceEnabled ? "自动合成语音并生成中…" : "按文案时长生成中…") : mixMode === "audio" ? "按音频时长生成中…" : "生成中…");
     let clipsPerOutput = Math.max(folderInfo?.count ?? 1, 1);
     const subtitleFont = SUBTITLE_FONTS[subtitleFontIndex] ?? SUBTITLE_FONTS[0];
     const textStyle: SubtitleStyleParams = {
@@ -1258,11 +1308,14 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       subtitleStyle,
       copyMode: mixMode === "copy",
       copyItems: mixMode === "copy" ? validCopyItems.map((item) => ({ id: item.id, text: item.text.trim() })) : undefined,
-      copyVoice: mixMode === "copy" && copyVoice ? {
+      copyVoice: mixMode === "copy" && copyVoiceEnabled && copyVoice ? {
         speaker: copyVoice.VoiceType,
         resourceId: copyVoice.ResourceID,
         name: copyVoice.Name,
       } : null,
+      copyVoiceEnabled,
+      copyVoiceSpeechRate,
+      copyVoiceLoudnessRate,
       copyVariants: outCount,
       copySubtitleEnabled,
       copySubtitleStyle: mixMode === "copy" && copySubtitleEnabled ? textStyle : null,
@@ -1876,39 +1929,44 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             <button className={tab === "pic" ? "active" : ""} onClick={() => setTab("pic")}>画面处理</button>
           </div>
           <div className="set-scroll">{tab === "generate" ? (
-            <FolderMixSettings
-              mixMode={mixMode}
-              setMixMode={setMixMode}
-              outCount={outCount}
-              setOutCount={setOutCount}
-              materialCount={materialCount}
-              setMaterialCount={setMaterialCount}
-              clipStartSec={clipStartSec}
-              setClipStartSec={setClipStartSec}
-              clipEndSec={clipEndSec}
-              setClipEndSec={setClipEndSec}
-              shuffle={shuffle}
-              setShuffle={setShuffle}
-              allowReuse={allowReuse}
-              setAllowReuse={setAllowReuse}
-              subtitleMode={subtitleMode}
-              setSubtitleMode={setSubtitleMode}
-              copySubtitleEnabled={copySubtitleEnabled}
-              setCopySubtitleEnabled={setCopySubtitleEnabled}
-              audioSubtitleEnabled={audioSubtitleEnabled}
-              setAudioSubtitleEnabled={setAudioSubtitleEnabled}
-              groupOutputs={groupOutputs}
-              setGroupOutputs={setGroupOutputs}
-              fixedFirstEnabled={fixedFirstEnabled}
-              setFixedFirstEnabled={setFixedFirstEnabled}
-              fixedFirstPath={fixedFirstPath}
-              setFixedFirstPath={setFixedFirstPath}
-              fixedFirstStartSec={fixedFirstStartSec}
-              setFixedFirstStartSec={setFixedFirstStartSec}
-              fixedFirstEndSec={fixedFirstEndSec}
-              setFixedFirstEndSec={setFixedFirstEndSec}
-              smartOnly={isSmartMixModule}
-            />
+            <div className="box right-settings-card">
+              <div className="box-h">生成设置</div>
+              <div className="right-settings-body">
+                <FolderMixSettings
+                  mixMode={mixMode}
+                  setMixMode={setMixMode}
+                  outCount={outCount}
+                  setOutCount={setOutCount}
+                  materialCount={materialCount}
+                  setMaterialCount={setMaterialCount}
+                  clipStartSec={clipStartSec}
+                  setClipStartSec={setClipStartSec}
+                  clipEndSec={clipEndSec}
+                  setClipEndSec={setClipEndSec}
+                  shuffle={shuffle}
+                  setShuffle={setShuffle}
+                  allowReuse={allowReuse}
+                  setAllowReuse={setAllowReuse}
+                  subtitleMode={subtitleMode}
+                  setSubtitleMode={setSubtitleMode}
+                  copySubtitleEnabled={copySubtitleEnabled}
+                  setCopySubtitleEnabled={setCopySubtitleEnabled}
+                  audioSubtitleEnabled={audioSubtitleEnabled}
+                  setAudioSubtitleEnabled={setAudioSubtitleEnabled}
+                  groupOutputs={groupOutputs}
+                  setGroupOutputs={setGroupOutputs}
+                  fixedFirstEnabled={fixedFirstEnabled}
+                  setFixedFirstEnabled={setFixedFirstEnabled}
+                  fixedFirstPath={fixedFirstPath}
+                  setFixedFirstPath={setFixedFirstPath}
+                  fixedFirstStartSec={fixedFirstStartSec}
+                  setFixedFirstStartSec={setFixedFirstStartSec}
+                  fixedFirstEndSec={fixedFirstEndSec}
+                  setFixedFirstEndSec={setFixedFirstEndSec}
+                  smartOnly={isSmartMixModule}
+                />
+              </div>
+            </div>
           ) : tab === "base" ? (
             <BaseSettings
               videoVolume={videoVolume}
@@ -1924,6 +1982,12 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
               onToggleBgmPreview={toggleBgmPreview}
               mixMode={mixMode}
               selectedVoice={selectedVoice}
+              copyVoiceEnabled={copyVoiceEnabled}
+              setCopyVoiceEnabled={setCopyVoiceEnabled}
+              copyVoiceSpeechRate={copyVoiceSpeechRate}
+              setCopyVoiceSpeechRate={setCopyVoiceSpeechRate}
+              copyVoiceLoudnessRate={copyVoiceLoudnessRate}
+              setCopyVoiceLoudnessRate={setCopyVoiceLoudnessRate}
               onOpenVoicePicker={() => setVoicePickerOpen(true)}
               activeTextLabel={activeTextLabel}
               subtitleText={activeTextValue}

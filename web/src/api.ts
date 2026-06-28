@@ -24,6 +24,9 @@ export interface MixParams {
   copyMode?: boolean;
   copyItems?: CopyMixItem[];
   copyVoice?: CopyVoiceParams | null;
+  copyVoiceEnabled?: boolean;
+  copyVoiceSpeechRate?: number;
+  copyVoiceLoudnessRate?: number;
   copyVariants?: number;
   copySubtitleEnabled?: boolean;
   copySubtitleStyle?: SubtitleStyleParams | null;
@@ -108,6 +111,8 @@ export interface TtsParams {
   resourceId?: string;
   format?: "mp3";
   sampleRate?: number;
+  speechRate?: number;
+  loudnessRate?: number;
 }
 
 export interface TtsResult {
@@ -116,6 +121,8 @@ export interface TtsResult {
   bytes: number;
   format: string;
   sampleRate: number;
+  speechRate?: number;
+  loudnessRate?: number;
   logid?: string;
   usage?: unknown;
   sentences?: unknown[];
@@ -195,6 +202,41 @@ export interface SegmentClip {
   startSec: number;
   endSec: number;
   durationSec: number;
+}
+
+export interface ExportVideoItem {
+  name: string;
+  path: string;
+  url: string;
+  size: number;
+  modifiedAt: string;
+}
+
+export interface ExportBatchItem {
+  name: string;
+  dir: string;
+  createdAt: string;
+  modifiedAt: string;
+  mode: string;
+  modeLabel: string;
+  manifest: string;
+  videoCount: number;
+  videos: ExportVideoItem[];
+}
+
+export interface ExportDateGroup {
+  date: string;
+  dir: string;
+  root: string;
+  rootName: string;
+  count: number;
+  batches: ExportBatchItem[];
+}
+
+export interface ExportLibrary {
+  root: string;
+  roots: string[];
+  dates: ExportDateGroup[];
 }
 
 export type SegmentEvent =
@@ -358,6 +400,7 @@ export async function segmentMaterials(
     detectFps?: number;
     cutPaddingSec?: number;
     speechProtection?: boolean;
+    segmentMode?: "material" | "reuse";
     speechPadSec?: number;
     speechMaxShiftSec?: number;
     force?: boolean;
@@ -422,6 +465,30 @@ export async function synthesizeSpeech(params: TtsParams): Promise<TtsResult> {
     throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
   }
   return readJson<TtsResult>(resp, "语音合成接口未返回数据");
+}
+
+export async function listExports(): Promise<ExportLibrary> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/exports");
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<ExportLibrary>(resp, "导出目录接口未返回数据");
+}
+
+export async function saveExportRoot(path: string, remove = false): Promise<{ roots: string[] }> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/export-roots", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path, remove }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<{ roots: string[] }>(resp, "导出目录保存接口未返回数据");
 }
 
 function toRustReq(p: MixParams) {

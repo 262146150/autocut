@@ -25,6 +25,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
   const [segments, setSegments] = useState<SegmentClip[]>([]);
   const [selected, setSelected] = useState<SegmentClip | null>(null);
   const [threshold, setThreshold] = useState(35);
+  const [segmentMode, setSegmentMode] = useState<"material" | "reuse">("material");
   const [minDuration, setMinDuration] = useState(1.2);
   const [targetDuration, setTargetDuration] = useState(12);
   const [maxDuration, setMaxDuration] = useState(25);
@@ -38,6 +39,19 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
   const [manifest, setManifest] = useState("");
   const [exportDir, setExportDir] = useState("");
   const [engine, setEngine] = useState("");
+
+  const switchSegmentMode = (mode: "material" | "reuse") => {
+    setSegmentMode(mode);
+    if (mode === "reuse") {
+      setMinDuration(4);
+      setTargetDuration(15);
+      setMaxDuration(30);
+    } else {
+      setMinDuration(1.2);
+      setTargetDuration(12);
+      setMaxDuration(25);
+    }
+  };
 
   const onImport = async () => {
     const next = prompt("输入素材文件夹或单个视频文件的本机路径", folder);
@@ -84,6 +98,7 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
         detectFps,
         cutPaddingSec: cutPadding,
         speechProtection,
+        segmentMode,
         speechPadSec: 0.2,
         speechMaxShiftSec: 1.5,
         force,
@@ -211,6 +226,14 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
           <div className="box segment-box">
             <div className="box-h">分割设置</div>
             <div className="segment-settings-body">
+              <div className="segment-field segment-field-wide">
+                <span>分割模式 <HelpTip text="原始素材会尽量按镜头边界素材化；成片复用会合并频繁转场，只在目标时长附近保守切分。" /></span>
+                <div className="mini-seg compact">
+                  <button className={segmentMode === "material" ? "active" : ""} type="button" onClick={() => switchSegmentMode("material")}>原始素材</button>
+                  <button className={segmentMode === "reuse" ? "active" : ""} type="button" onClick={() => switchSegmentMode("reuse")}>成片复用</button>
+                </div>
+                <b>{segmentMode === "reuse" ? "保守" : "素材化"}</b>
+              </div>
               <label className="segment-field">
                 <span>镜头阈值 <HelpTip text="控制画面变化多大才算一个镜头切点。数值越低切得越细，数值越高切得越少。" /></span>
                 <input type="range" min={10} max={80} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} />
@@ -218,17 +241,17 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
               </label>
               <label className="segment-field">
                 <span>最小时长 <HelpTip text="过滤过短片段。低于该时长的相邻片段会尽量合并，避免生成碎片化素材。" /></span>
-                <input className="inp" type="number" min={0.4} step={0.1} value={minDuration} onChange={(e) => setMinDuration(Number(e.target.value) || 1.2)} />
+                <input className="inp" type="number" min={segmentMode === "reuse" ? 4 : 0.4} step={0.1} value={minDuration} onChange={(e) => setMinDuration(Number(e.target.value) || (segmentMode === "reuse" ? 4 : 1.2))} />
                 <b>秒</b>
               </label>
               <label className="segment-field">
                 <span>目标时长 <HelpTip text="没有明显镜头切点，或口播/直播持续说话时，系统会尽量按这个时长拆分。" /></span>
-                <input className="inp" type="number" min={1} step={1} value={targetDuration} onChange={(e) => setTargetDuration(Number(e.target.value) || 12)} />
+                <input className="inp" type="number" min={segmentMode === "reuse" ? 8 : 1} step={1} value={targetDuration} onChange={(e) => setTargetDuration(Number(e.target.value) || (segmentMode === "reuse" ? 15 : 12))} />
                 <b>秒</b>
               </label>
               <label className="segment-field">
                 <span>最大时长 <HelpTip text="单个片段允许的最长时长。超过后会强制寻找合适位置切开，防止长视频无法素材化。" /></span>
-                <input className="inp" type="number" min={2} step={1} value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value) || 25)} />
+                <input className="inp" type="number" min={segmentMode === "reuse" ? 12 : 2} step={1} value={maxDuration} onChange={(e) => setMaxDuration(Number(e.target.value) || (segmentMode === "reuse" ? 30 : 25))} />
                 <b>秒</b>
               </label>
               <div className="segment-field segment-field-wide">
@@ -256,7 +279,9 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
                 <span>强制重新分割 <HelpTip text="忽略已有片段库缓存，重新检测和切片。调整参数后建议开启。" /></span>
               </label>
               <div className="segment-note">
-                当前用 TransNetV2 检测镜头，用 sherpa-onnx VAD 避开人声切点，减少说话被硬切。
+                {segmentMode === "reuse"
+                  ? "成片复用模式会合并频繁转场，只输出更长的复用片段，避免 AI 混剪时画面过碎。"
+                  : "原始素材模式会用 TransNetV2 检测镜头，并用 sherpa-onnx VAD 避开人声切点。"}
               </div>
             </div>
           </div>

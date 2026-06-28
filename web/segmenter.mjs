@@ -26,7 +26,7 @@ async function fingerprint(file) {
 
 function libraryKey(items, options = {}) {
   const hash = createHash("sha1");
-  hash.update(`scene:${options.engine ?? ""}:${options.modelKey ?? ""}:${options.vadKey ?? ""}:${options.speechProtection ?? ""}:${options.threshold ?? ""}:${options.minDurationSec ?? ""}:${options.targetSegmentSec ?? ""}:${options.maxSegmentSec ?? ""}:${options.detectFps ?? ""}:${options.cutPaddingSec ?? ""}`);
+  hash.update(`scene:${options.segmentMode ?? ""}:${options.engine ?? ""}:${options.modelKey ?? ""}:${options.vadKey ?? ""}:${options.speechProtection ?? ""}:${options.threshold ?? ""}:${options.minDurationSec ?? ""}:${options.targetSegmentSec ?? ""}:${options.maxSegmentSec ?? ""}:${options.detectFps ?? ""}:${options.cutPaddingSec ?? ""}`);
   hash.update("\n");
   for (const item of items) {
     hash.update(item.path);
@@ -127,6 +127,38 @@ function enforceSegmentDuration(cuts, speechSegments, durationSec, options = {})
   return uniqueCuts(result, total, minDuration);
 }
 
+function planReuseCuts(cuts, speechSegments, durationSec, options = {}) {
+  const total = Math.max(0, Number(durationSec) || 0);
+  if (!total) return [];
+  const minDuration = Math.max(4, Number(options.minDurationSec) || 4);
+  const targetValue = Number(options.targetSegmentSec);
+  const maxValue = Number(options.maxSegmentSec);
+  const target = Math.max(minDuration, Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 12);
+  const maxDuration = Math.max(target, Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 25);
+  if (total <= maxDuration) return [];
+
+  const candidates = uniqueCuts([
+    ...(cuts ?? []),
+    ...speechBoundaryCandidates(speechSegments, total),
+  ], total, Math.max(1.5, minDuration * 0.45));
+  const result = [];
+  let cursor = 0;
+  while (total - cursor > maxDuration) {
+    const minCut = cursor + minDuration;
+    const maxCut = Math.min(cursor + maxDuration, total - minDuration);
+    if (maxCut <= minCut) break;
+    const desired = Math.min(cursor + target, maxCut);
+    const nearby = candidates
+      .filter((cut) => cut > minCut && cut < maxCut)
+      .sort((a, b) => Math.abs(a - desired) - Math.abs(b - desired));
+    const cut = nearby[0] ?? Number(desired.toFixed(3));
+    if (!cut || cut <= cursor + 0.1) break;
+    result.push(cut);
+    cursor = cut;
+  }
+  return uniqueCuts(result, total, minDuration);
+}
+
 function buildRanges(duration, cuts, minDurationSec, cutPaddingSec = 0.35) {
   const total = Math.max(0, Number(duration) || 0);
   if (!total) return [];
@@ -188,12 +220,16 @@ function cacheComplete(manifest) {
 
 export async function buildSegmentLibrary(clips, options = {}) {
   const cacheDir = options.cacheDir || path.join(process.cwd(), "_cache", "segments");
+  const segmentMode = options.segmentMode === "reuse" ? "reuse" : "material";
   const threshold = Math.max(0.05, Math.min(0.9, Number(options.threshold ?? 0.35)));
-  const minDurationSec = Math.max(0.4, Number(options.minDurationSec ?? 1.2));
+  const requestedMinDurationSec = Math.max(0.4, Number(options.minDurationSec ?? 1.2));
+  const minDurationSec = segmentMode === "reuse" ? Math.max(4, requestedMinDurationSec) : requestedMinDurationSec;
   const targetValue = Number(options.targetSegmentSec);
   const maxValue = Number(options.maxSegmentSec);
-  const targetSegmentSec = Math.max(minDurationSec, Number.isFinite(targetValue) && targetValue > 0 ? targetValue : 12);
-  const maxSegmentSec = Math.max(targetSegmentSec, Number.isFinite(maxValue) && maxValue > 0 ? maxValue : 25);
+  const targetDefault = segmentMode === "reuse" ? 15 : 12;
+  const maxDefault = segmentMode === "reuse" ? 30 : 25;
+  const targetSegmentSec = Math.max(minDurationSec, Number.isFinite(targetValue) && targetValue > 0 ? targetValue : targetDefault);
+  const maxSegmentSec = Math.max(targetSegmentSec, Number.isFinite(maxValue) && maxValue > 0 ? maxValue : maxDefault);
   const detectFps = Math.max(0, Number(options.detectFps ?? 12));
   const cutPaddingSec = Math.max(0, Math.min(2, Number(options.cutPaddingSec ?? 0.35)));
   const speechProtection = options.speechProtection !== false;
@@ -222,6 +258,7 @@ export async function buildSegmentLibrary(clips, options = {}) {
   }
   if (!fingerprints.length) throw new Error("没有可分割的视频素材");
   const key = libraryKey(fingerprints, {
+    segmentMode,
     threshold,
     minDurationSec,
     targetSegmentSec,
@@ -250,7 +287,7 @@ export async function buildSegmentLibrary(clips, options = {}) {
   }
 
   const segments = [];
-  options.onEvent?.({ type: "segment_log", msg: `智能分割：开始分析 ${fingerprints.length} 个视频` });
+  options.onEvent?.({ type: "segment_log", msg: `智能分割：${segmentMode === "reuse" ? "成片复用" : "原始素材"}模式，开始分析 ${fingerprints.length} 个视频` });
   for (let clipIndex = 0; clipIndex < fingerprints.length; clipIndex++) {
     const item = fingerprints[clipIndex];
     const durationSec = await probeDuration(item.path);
@@ -296,11 +333,16 @@ export async function buildSegmentLibrary(clips, options = {}) {
         });
       }
     }
-    cuts = enforceSegmentDuration(cuts, speechSegments, durationSec, {
-      minDurationSec,
-      targetSegmentSec,
-      maxSegmentSec,
-    });
+    const detectedCutCount = cuts.length;
+    cuts = segmentMode === "reuse"
+      ? planReuseCuts(cuts, speechSegments, durationSec, { minDurationSec, targetSegmentSec, maxSegmentSec })
+      : enforceSegmentDuration(cuts, speechSegments, durationSec, { minDurationSec, targetSegmentSec, maxSegmentSec });
+    if (segmentMode === "reuse") {
+      options.onEvent?.({
+        type: "segment_log",
+        msg: `成片复用：${path.basename(item.path)} 原始切点 ${detectedCutCount} 个，保守保留 ${cuts.length} 个`,
+      });
+    }
     const ranges = buildRanges(durationSec, cuts, minDurationSec, cutPaddingSec);
     const sourceBase = safeName(path.basename(item.path, path.extname(item.path)), `素材${clipIndex + 1}`);
     for (let rangeIndex = 0; rangeIndex < ranges.length; rangeIndex++) {
@@ -335,6 +377,7 @@ export async function buildSegmentLibrary(clips, options = {}) {
 
   const manifest = {
     version: 1,
+    segmentMode,
     engine,
     targetEngine: "transnetv2-onnx",
     detector: transnet.available ? {
@@ -356,7 +399,7 @@ export async function buildSegmentLibrary(clips, options = {}) {
     },
     createdAt: new Date().toISOString(),
     key,
-    settings: { threshold, minDurationSec, targetSegmentSec, maxSegmentSec, detectFps, cutPaddingSec, speechProtection, speechPadSec, speechMaxShiftSec },
+    settings: { segmentMode, threshold, minDurationSec, targetSegmentSec, maxSegmentSec, detectFps, cutPaddingSec, speechProtection, speechPadSec, speechMaxShiftSec },
     source: {
       files: fingerprints.map((item) => ({ path: item.path, size: item.size, mtimeMs: item.mtimeMs })),
     },

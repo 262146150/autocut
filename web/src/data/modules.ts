@@ -2,7 +2,7 @@
 
 export type IconName =
   | "spark" | "fx" | "arrow" | "layers" | "doc" | "flame"
-  | "caption" | "tag" | "image" | "poster" | "mic";
+  | "caption" | "tag" | "image" | "poster" | "mic" | "video";
 
 export interface ModuleDef {
   id: string;
@@ -38,6 +38,9 @@ export const CATS: Record<string, ModuleDef[]> = {
       tags: ["视频切片", "直播切片", "精华提取", "AI筛选"] },
   ],
   效率工具: [
+    { id: "export-library", icon: "video", name: "导出视频", ready: true,
+      desc: "浏览本地导出目录，按日期和任务批次查看成片，并在工作台内直接预览视频。",
+      tags: ["作品库", "本地目录", "视频预览"] },
     { id: "subtitle", icon: "caption", name: "字幕识别", ready: false,
       desc: "本地语音识别(ASR)，导出 SRT/词级时间戳，支持多语言与关键词。",
       tags: ["语音识别", "SRT", "词级时间戳", "多语言"] },

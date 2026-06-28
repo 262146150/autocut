@@ -34,6 +34,11 @@ function additionsPayload() {
   });
 }
 
+function rateValue(value) {
+  const n = Math.round(Number(value) || 0);
+  return Math.max(-50, Math.min(100, n));
+}
+
 function parseStreamLine(line) {
   const text = line.trim();
   if (!text) return null;
@@ -51,6 +56,8 @@ export async function synthesizeSpeech({
   outputPath,
   format = "mp3",
   sampleRate = 24000,
+  speechRate = 0,
+  loudnessRate = 0,
 }) {
   const source = String(text || "").trim();
   if (!source) throw new Error("合成文本不能为空");
@@ -76,6 +83,8 @@ export async function synthesizeSpeech({
         audio_params: {
           format,
           sample_rate: sampleRate,
+          speech_rate: rateValue(speechRate),
+          loudness_rate: rateValue(loudnessRate),
         },
       },
     }),
@@ -138,6 +147,8 @@ export async function synthesizeSpeech({
     bytes: audio.length,
     format,
     sampleRate,
+    speechRate: rateValue(speechRate),
+    loudnessRate: rateValue(loudnessRate),
     logid,
     usage,
     sentences,
