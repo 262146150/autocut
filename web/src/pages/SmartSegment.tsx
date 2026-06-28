@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ModuleDef } from "../data/modules";
 import { inspectMaterials, segmentMaterials, type MaterialFolderInfo, type SegmentClip } from "../api";
+import { ExportTaskDrawer, type ExportTaskItem } from "../components/ExportTaskDrawer";
 
 function basename(filePath: string) {
   return filePath.split(/[\\/]/).filter(Boolean).pop() || filePath;
@@ -39,6 +40,13 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
   const [manifest, setManifest] = useState("");
   const [exportDir, setExportDir] = useState("");
   const [engine, setEngine] = useState("");
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskItems, setTaskItems] = useState<ExportTaskItem[]>([]);
+  const [taskLogs, setTaskLogs] = useState<string[]>([]);
+
+  const addTaskLog = (message: string) => {
+    setTaskLogs((logs) => [...logs.slice(-19), message]);
+  };
 
   const switchSegmentMode = (mode: "material" | "reuse") => {
     setSegmentMode(mode);
@@ -87,6 +95,9 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
     setExportDir("");
     setEngine("");
     setProgress(0);
+    setTaskOpen(true);
+    setTaskItems([]);
+    setTaskLogs([`任务创建：${segmentMode === "reuse" ? "成片复用" : "原始素材"}分割`]);
     setStatus("智能分割准备中…");
     try {
       await segmentMaterials({
@@ -105,15 +116,27 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
       }, (event) => {
         if (event.type === "start") {
           setStatus(`开始分析 ${event.total} 个视频`);
+          addTaskLog(`开始分析 ${event.total} 个视频`);
           setProgress(3);
         } else if (event.type === "segment_file") {
           const total = Math.max(1, event.total);
           setStatus(`检测镜头：${event.index}/${event.total} ${event.name}`);
+          addTaskLog(`检测镜头：${event.index}/${event.total} ${event.name}`);
           setProgress(Math.min(92, Math.round((event.index / total) * 82)));
         } else if (event.type === "segment_done") {
           setStatus(`已切出片段：${event.name}`);
+          addTaskLog(`已切出片段：${event.name}`);
+          setTaskItems((items) => [...items, {
+            id: `segment-${event.index}`,
+            name: event.name,
+            status: "done",
+            path: event.path,
+            url: `/api/media?path=${encodeURIComponent(event.path)}`,
+            meta: `${event.sourceName} · ${fmtSec(event.startSec)}-${fmtSec(event.endSec)}`,
+          }]);
         } else if (event.type === "segment_log") {
           setStatus(event.msg);
+          addTaskLog(event.msg);
         } else if (event.type === "done") {
           setEngine(event.engine);
           setManifest(event.manifest);
@@ -122,12 +145,23 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
           setSelected(event.segments[0] ?? null);
           setProgress(100);
           setStatus(`${event.reused ? "复用片段库" : "分割完成"}，共 ${event.segments.length} 个片段`);
+          addTaskLog(`${event.reused ? "复用片段库" : "分割完成"}，共 ${event.segments.length} 个片段`);
+          setTaskItems(event.segments.map((segment, index) => ({
+            id: segment.id || `segment-${index + 1}`,
+            name: segment.name,
+            status: "done",
+            path: segment.path,
+            url: segment.url,
+            meta: `${segment.sourceName} · ${fmtSec(segment.startSec)}-${fmtSec(segment.endSec)}`,
+          })));
         } else if (event.type === "error") {
           setStatus("分割失败：" + event.msg);
+          addTaskLog("分割失败：" + event.msg);
         }
       });
     } catch (err) {
       setStatus("分割失败：" + (err as Error).message);
+      addTaskLog("分割失败：" + (err as Error).message);
     } finally {
       setRunning(false);
     }
@@ -288,13 +322,28 @@ export default function SmartSegment({ mod }: { mod: ModuleDef }) {
           <button className={`cta ${folder && !running ? "ready" : "disabled"}`} type="button" onClick={onSegment}>
             {!folder ? "请先导入素材" : running ? "分割中…" : "开始智能分割"}
           </button>
-          {running || progress > 0 ? <div className="bar"><i style={{ width: `${progress}%` }} /></div> : null}
-          <div className="status">{status}</div>
+          {running || progress > 0 || status ? (
+            <button className="task-mini" type="button" onClick={() => setTaskOpen(true)}>
+              <span>{running ? "分割中" : progress >= 100 ? "分割完成" : "任务状态"}</span>
+              <b>{progress}%</b>
+              <em>{status || "查看分割任务"}</em>
+            </button>
+          ) : null}
           {engine ? <div className="segment-meta">引擎：{engine}</div> : null}
-          {exportDir ? <div className="export-dir" title={exportDir}>输出目录：{exportDir}</div> : null}
-          {manifest ? <div className="export-dir" title={manifest}>片段库：{manifest}</div> : null}
         </aside>
       </div>
+      <ExportTaskDrawer
+        open={taskOpen}
+        title="智能分割任务"
+        status={status}
+        progress={progress}
+        running={running}
+        exportDir={exportDir}
+        manifest={manifest}
+        items={taskItems}
+        logs={taskLogs}
+        onClose={() => setTaskOpen(false)}
+      />
     </div>
   );
 }

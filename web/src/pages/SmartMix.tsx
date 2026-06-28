@@ -4,6 +4,7 @@ import type { ModuleDef } from "../data/modules";
 import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
 import { Group, Field, Slider } from "../components/controls";
 import { DEFAULT_VIDEO_PROCESSING, VideoProcessingSettings } from "../components/VideoProcessingSettings";
+import { ExportTaskDrawer, type ExportTaskItem } from "../components/ExportTaskDrawer";
 import voiceRaw from "../../voice.json?raw";
 
 const PRESET_COLORS = ["random", "#fff", "#f2c14e", "#ef5777", "#3b82f6", "#22c55e", "#111", "#f97316", "#10b981", "#ec4899", "#60a5fa", "#84cc16"];
@@ -140,6 +141,16 @@ function localMediaUrl(filePath: string) {
 
 function basename(filePath: string) {
   return filePath.split(/[\\/]/).filter(Boolean).pop() || filePath;
+}
+
+function outputNameFromUrl(url: string, fallback: string) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const raw = parsed.searchParams.get("path") || parsed.pathname;
+    return basename(decodeURIComponent(raw)) || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function previewVolume(value: number) {
@@ -784,6 +795,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [status, setStatus] = useState("");
   const [outputs, setOutputs] = useState<string[]>([]);
   const [exportDir, setExportDir] = useState("");
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskItems, setTaskItems] = useState<ExportTaskItem[]>([]);
+  const [taskLogs, setTaskLogs] = useState<string[]>([]);
   const [segmentLibraryState, setSegmentLibraryState] = useState<SegmentLibraryState | null>(null);
   const [smartIndexState, setSmartIndexState] = useState<SmartIndexState | null>(null);
   const [smartMatchStates, setSmartMatchStates] = useState<SmartMatchState[]>([]);
@@ -839,6 +853,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
 
   const bgmMediaUrl = bgmPath.trim() ? localMediaUrl(bgmPath.trim()) : "";
   const bgmPreviewUrl = bgmEnabled ? bgmMediaUrl : "";
+  const addTaskLog = (message: string) => {
+    setTaskLogs((logs) => [...logs.slice(-19), message]);
+  };
 
   useEffect(() => {
     if (isSmartMixModule && mixMode === "custom") setMixMode("copy");
@@ -1249,6 +1266,9 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     setOutputs([]);
     setExportDir("");
     setProgress(0);
+    setTaskOpen(true);
+    setTaskItems([]);
+    setTaskLogs([`任务创建：${mixMode === "copy" ? "文案模式" : mixMode === "audio" ? "音频模式" : "自定义模式"}`]);
     setSegmentLibraryState(null);
     setSmartIndexState(null);
     setSmartMatchStates([]);
@@ -1343,12 +1363,32 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
         if (e.type === "start") {
           clipsPerOutput = Math.max(e.clips.length, 1);
           setStatus(`素材 ${e.clips.length} 个`);
+          addTaskLog(`素材 ${e.clips.length} 个，预计导出 ${e.out} 个视频`);
+          setTaskItems(Array.from({ length: Math.max(1, e.out) }, (_, index) => ({
+            id: `out-${index + 1}`,
+            name: `成片_${String(index + 1).padStart(2, "0")}.mp4`,
+            status: index === 0 ? "running" : "waiting",
+          })));
         } else if (e.type === "segment") {
           const done = (e.output - 1) * clipsPerOutput + e.seg + 1;
           setProgress(Math.min(99, Math.round((done / (e.total * clipsPerOutput)) * 100)));
+          setTaskItems((items) => items.map((item, index) => index === e.output - 1 && item.status !== "done" ? { ...item, status: "running" } : item));
         }
-        else if (e.type === "output_done") setStatus(`已完成 ${e.output}/${e.total}`);
-        else if (e.type === "log") setStatus(e.msg);
+        else if (e.type === "output_done") {
+          setStatus(`已完成 ${e.output}/${e.total}`);
+          addTaskLog(`已完成 ${e.output}/${e.total}：${basename(e.path)}`);
+          setTaskItems((items) => items.map((item, index) => {
+            if (index === e.output - 1) {
+              return { ...item, name: basename(e.path), status: "done", path: e.path, url: localMediaUrl(e.path) };
+            }
+            if (index === e.output && item.status === "waiting") return { ...item, status: "running" };
+            return item;
+          }));
+        }
+        else if (e.type === "log") {
+          setStatus(e.msg);
+          addTaskLog(e.msg);
+        }
         else if (e.type === "segment_library") {
           setSegmentLibraryState({
             engine: e.engine,
@@ -1359,6 +1399,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             manifest: e.manifest,
           });
           setStatus(e.reused ? `复用片段库：${e.segments} 个片段` : `智能分割完成：${e.segments} 个片段`);
+          addTaskLog(e.reused ? `复用片段库：${e.segments} 个片段` : `智能分割完成：${e.segments} 个片段`);
         }
         else if (e.type === "smart_index") {
           setSmartIndexState({
@@ -1369,6 +1410,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             reason: e.reason,
           });
           setStatus(e.available ? `ONNX匹配已启用：${e.engine}` : "ONNX不可用，已降级为本地索引匹配");
+          addTaskLog(e.available ? `ONNX匹配已启用：${e.engine}` : "ONNX不可用，已降级为本地索引匹配");
         }
         else if (e.type === "smart_match") {
           const key = `${e.itemType}-${e.index}`;
@@ -1378,16 +1420,39 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
             return [...next, { key, label, engine: e.engine, matches: e.matches }];
           });
         }
-        else if (e.type === "error") setStatus("失败：" + e.msg);
+        else if (e.type === "error") {
+          setStatus("失败：" + e.msg);
+          addTaskLog("失败：" + e.msg);
+          setTaskItems((items) => items.map((item) => item.status === "running" ? { ...item, status: "error" } : item));
+        }
         else if (e.type === "done") {
           setProgress(100);
           setStatus(`完成，共 ${e.outputs.length} 条`);
           setOutputs(e.outputs);
           setExportDir(e.exportDir ?? "");
+          addTaskLog(`导出完成，共 ${e.outputs.length} 条`);
+          setTaskItems((items) => {
+            if (!items.length) {
+              return e.outputs.map((url, index) => ({
+                id: `out-${index + 1}`,
+                name: outputNameFromUrl(url, `成片_${String(index + 1).padStart(2, "0")}.mp4`),
+                status: "done",
+                url,
+              }));
+            }
+            return items.map((item, index) => ({
+              ...item,
+              status: "done",
+              url: item.url || e.outputs[index],
+              name: item.name || outputNameFromUrl(e.outputs[index], `成片_${String(index + 1).padStart(2, "0")}.mp4`),
+            }));
+          });
         }
       });
     } catch (err) {
       setStatus("失败：" + (err as Error).message);
+      addTaskLog("失败：" + (err as Error).message);
+      setTaskItems((items) => items.map((item) => item.status === "running" ? { ...item, status: "error" } : item));
     }
     setRunning(false);
   };
@@ -2013,10 +2078,26 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
           >
             {!folder ? "请先导入视频素材" : running ? "生成中…" : folderInfo?.count === 0 ? "该文件夹没有视频素材" : "开始生成"}
           </div>
-          {running || progress > 0 ? <div className="bar"><i style={{ width: `${progress}%` }} /></div> : null}
-          <div className="status">{status}</div>
+          {running || progress > 0 || status ? (
+            <button className="task-mini" type="button" onClick={() => setTaskOpen(true)}>
+              <span>{running ? "导出中" : progress >= 100 ? "导出完成" : "任务状态"}</span>
+              <b>{progress}%</b>
+              <em>{status || "查看导出任务"}</em>
+            </button>
+          ) : null}
         </div>
       </div>
+      <ExportTaskDrawer
+        open={taskOpen}
+        title={isSmartMixModule ? "AI 智能混剪导出" : "视频混剪导出"}
+        status={status}
+        progress={progress}
+        running={running}
+        exportDir={exportDir}
+        items={taskItems}
+        logs={taskLogs}
+        onClose={() => setTaskOpen(false)}
+      />
       {voicePickerOpen ? (
         <VoicePickerModal
           voices={VOICE_SPEAKERS}
