@@ -215,7 +215,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
                   >
                     <span>{root.name}</span>
                     <em>{root.categoryLabel} · {root.exists ? `${root.count} 个` : "路径失效"}</em>
-                    <b>{root.videoCount}/{root.audioCount}</b>
+                    <b>视频 {root.videoCount} · 音频 {root.audioCount}</b>
                   </button>
                   <button className="export-remove-root" type="button" onClick={() => removeSource(root)} aria-label="移除素材源">x</button>
                 </div>
