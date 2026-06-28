@@ -17,10 +17,10 @@ function formatTime(value: string) {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
-function selectFirstVideo(data: ExportLibraryData | null) {
+function selectFirstBatch(data: ExportLibraryData | null) {
   for (const date of data?.dates ?? []) {
     for (const batch of date.batches) {
-      if (batch.videos[0]) return { date, batch, video: batch.videos[0] };
+      return { date, batch };
     }
   }
   return null;
@@ -70,7 +70,7 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     try {
       const next = await listExports();
       setData(next);
-      let current: ReturnType<typeof selectFirstVideo> = null;
+      let current: { date: ExportDateGroup; batch: ExportBatchItem; video: ExportVideoItem } | null = null;
       if (selectedVideo) {
         for (const date of next.dates) {
           for (const batch of date.batches) {
@@ -85,11 +85,11 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
         setSelectedBatch(current.batch);
         setSelectedVideo(current.video);
       } else {
-        const first = selectFirstVideo(next);
+        const first = selectFirstBatch(next);
         setSelectedRoot(first?.date.root ?? next.roots[0] ?? "");
         setSelectedDateDir(first?.date.dir ?? next.dates[0]?.dir ?? "");
         setSelectedBatch(first?.batch ?? null);
-        setSelectedVideo(first?.video ?? null);
+        setSelectedVideo(null);
       }
       setStatus(next.dates.length ? `共 ${next.dates.length} 天，${next.dates.reduce((sum, date) => sum + date.batches.length, 0)} 个批次，${next.dates.reduce((sum, date) => sum + date.count, 0)} 个视频` : "暂无导出视频");
     } catch (err) {
@@ -115,7 +115,7 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     setSelectedRoot(root);
     setSelectedDateDir(firstDate?.dir ?? "");
     setSelectedBatch(firstBatch);
-    setSelectedVideo(firstBatch?.videos[0] ?? null);
+    setSelectedVideo(null);
     scrollToColumn(1);
   };
 
@@ -124,13 +124,13 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     setSelectedRoot(date.root);
     setSelectedDateDir(date.dir);
     setSelectedBatch(firstBatch);
-    setSelectedVideo(firstBatch?.videos[0] ?? null);
+    setSelectedVideo(null);
     scrollToColumn(2);
   };
 
   const chooseBatch = (batch: ExportBatchItem) => {
     setSelectedBatch(batch);
-    setSelectedVideo(batch.videos[0] ?? null);
+    setSelectedVideo(null);
     scrollToColumn(3);
   };
 
@@ -184,7 +184,7 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
         <button className="icon-btn text-btn" type="button" onClick={addRoot}>添加目录</button>
         <button className="import-btn" type="button" onClick={refresh}>刷新</button>
       </div>
-      <div className="export-page">
+      <div className={`export-page ${selectedVideo ? "has-preview" : "no-preview"}`}>
         <section className="export-browser box">
           <div className="box-h">
             <span>产出浏览</span>
@@ -268,64 +268,57 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
           </div>
         </section>
 
-        <section className="export-main">
-          <div className="export-player">
-            {selectedVideo ? (
+        {selectedVideo ? (
+          <section className="export-main">
+            <div className="export-player">
               <video key={selectedVideo.path} src={selectedVideo.url} controls />
-            ) : (
-              <div className="preview-empty">选择一个导出视频</div>
-            )}
-          </div>
-          <div className="export-status">{status}</div>
-          <section className="export-inspector box">
-            <div className="box-h">视频信息</div>
-            {selectedVideo && selectedBatch ? (
-              <div className="export-info">
-                <label>
-                  <span>文件名</span>
-                  <b title={selectedVideo.name}>{selectedVideo.name}</b>
-                </label>
-                <label>
-                  <span>大小</span>
-                  <b>{formatBytes(selectedVideo.size)}</b>
-                </label>
-                <label>
-                  <span>修改时间</span>
-                  <b>{formatTime(selectedVideo.modifiedAt)}</b>
-                </label>
-                <label>
-                  <span>生成模式</span>
-                  <b>{selectedBatch.modeLabel}</b>
-                </label>
-                <label className="wide">
-                  <span>批次目录</span>
-                  <b title={selectedBatch.dir}>{selectedBatch.dir}</b>
-                </label>
-                <label className="wide">
-                  <span>导出根目录</span>
-                  <b title={data?.roots.find((root) => selectedBatch.dir.startsWith(root)) || ""}>
-                    {data?.roots.find((root) => selectedBatch.dir.startsWith(root)) || "-"}
-                  </b>
-                </label>
-                <label className="wide">
-                  <span>视频路径</span>
-                  <b title={selectedVideo.path}>{selectedVideo.path}</b>
-                </label>
-                {selectedBatch.manifest ? (
-                  <label className="wide">
-                    <span>清单文件</span>
-                    <b title={selectedBatch.manifest}>{selectedBatch.manifest}</b>
+            </div>
+            <div className="export-status">{status}</div>
+            {selectedBatch ? (
+              <section className="export-inspector box">
+                <div className="box-h">视频信息</div>
+                <div className="export-info">
+                  <label>
+                    <span>文件名</span>
+                    <b title={selectedVideo.name}>{selectedVideo.name}</b>
                   </label>
-                ) : null}
-              </div>
-            ) : (
-              <div className="empty">
-                <div className="t">未选择视频</div>
-                <div className="s">从左侧目录选择视频后查看信息</div>
-              </div>
-            )}
+                  <label>
+                    <span>大小</span>
+                    <b>{formatBytes(selectedVideo.size)}</b>
+                  </label>
+                  <label>
+                    <span>修改时间</span>
+                    <b>{formatTime(selectedVideo.modifiedAt)}</b>
+                  </label>
+                  <label>
+                    <span>生成模式</span>
+                    <b>{selectedBatch.modeLabel}</b>
+                  </label>
+                  <label className="wide">
+                    <span>批次目录</span>
+                    <b title={selectedBatch.dir}>{selectedBatch.dir}</b>
+                  </label>
+                  <label className="wide">
+                    <span>导出根目录</span>
+                    <b title={data?.roots.find((root) => selectedBatch.dir.startsWith(root)) || ""}>
+                      {data?.roots.find((root) => selectedBatch.dir.startsWith(root)) || "-"}
+                    </b>
+                  </label>
+                  <label className="wide">
+                    <span>视频路径</span>
+                    <b title={selectedVideo.path}>{selectedVideo.path}</b>
+                  </label>
+                  {selectedBatch.manifest ? (
+                    <label className="wide">
+                      <span>清单文件</span>
+                      <b title={selectedBatch.manifest}>{selectedBatch.manifest}</b>
+                    </label>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
           </section>
-        </section>
+        ) : null}
       </div>
     </div>
   );

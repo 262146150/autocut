@@ -2620,6 +2620,10 @@ input.inp {
   overflow: hidden;
 }
 
+.export-page.no-preview {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .export-browser {
   min-height: 0;
   display: flex;
@@ -3160,6 +3164,10 @@ input.inp {
     grid-template-columns: minmax(560px, 1fr) minmax(360px, .5fr);
     gap: 10px;
     padding: 10px;
+  }
+
+  .export-page.no-preview {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .export-right {
