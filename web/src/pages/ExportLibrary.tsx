@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ModuleDef } from "../data/modules";
-import { listExports, saveExportRoot, saveMaterialSource, type ExportBatchItem, type ExportDateGroup, type ExportLibrary as ExportLibraryData, type ExportVideoItem } from "../api";
+import { listExports, listGenerationTasks, saveExportRoot, saveMaterialSource, type ExportBatchItem, type ExportDateGroup, type ExportEntryItem, type ExportLibrary as ExportLibraryData, type ExportVideoItem, type GenerationTaskRecord } from "../api";
 
 function formatBytes(bytes: number) {
   const value = Number(bytes) || 0;
@@ -17,6 +17,26 @@ function formatTime(value: string) {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
+function formatDurationMs(value: number | null) {
+  const ms = Math.max(0, Number(value) || 0);
+  if (!ms) return "-";
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec} 秒`;
+  const min = Math.floor(sec / 60);
+  const rest = sec % 60;
+  if (min < 60) return rest ? `${min} 分 ${rest} 秒` : `${min} 分`;
+  const hour = Math.floor(min / 60);
+  const leftMin = min % 60;
+  return leftMin ? `${hour} 小时 ${leftMin} 分` : `${hour} 小时`;
+}
+
+function taskStatusText(status: string) {
+  if (status === "success") return "完成";
+  if (status === "failed") return "失败";
+  if (status === "running") return "进行中";
+  return status || "-";
+}
+
 function selectFirstBatch(data: ExportLibraryData | null) {
   for (const date of data?.dates ?? []) {
     for (const batch of date.batches) {
@@ -26,11 +46,44 @@ function selectFirstBatch(data: ExportLibraryData | null) {
   return null;
 }
 
+function entriesFromBatch(batch: ExportBatchItem | null): ExportEntryItem[] {
+  if (!batch) return [];
+  if (batch.entries?.length) return batch.entries;
+  return batch.videos.map((video) => ({
+    ...video,
+    kind: "video",
+    videoCount: 1,
+  }));
+}
+
+function videoFromEntry(entry: ExportEntryItem): ExportVideoItem {
+  return {
+    name: entry.name,
+    path: entry.path,
+    url: entry.url || "",
+    size: entry.size ?? 0,
+    modifiedAt: entry.modifiedAt || "",
+  };
+}
+
+function findEntryPath(entries: ExportEntryItem[], targetPath: string): string[] | null {
+  for (const entry of entries) {
+    if (entry.path === targetPath) return [entry.path];
+    if (entry.kind === "dir" && entry.children?.length) {
+      const childPath = findEntryPath(entry.children, targetPath);
+      if (childPath) return [entry.path, ...childPath];
+    }
+  }
+  return null;
+}
+
 export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
   const [data, setData] = useState<ExportLibraryData | null>(null);
+  const [tasks, setTasks] = useState<GenerationTaskRecord[]>([]);
   const [selectedRoot, setSelectedRoot] = useState("");
   const [selectedDateDir, setSelectedDateDir] = useState("");
   const [selectedBatch, setSelectedBatch] = useState<ExportBatchItem | null>(null);
+  const [selectedEntryPath, setSelectedEntryPath] = useState<string[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<ExportVideoItem | null>(null);
   const [status, setStatus] = useState("正在读取导出目录…");
   const columnsRef = useRef<HTMLDivElement | null>(null);
@@ -64,18 +117,46 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     () => data?.dates.reduce((sum, date) => sum + date.batches.length, 0) ?? 0,
     [data],
   );
+  const contentColumns = useMemo(() => {
+    const columns: Array<{ title: string; entries: ExportEntryItem[]; selectedPath?: string }> = [];
+    let entries = entriesFromBatch(selectedBatch);
+    let title = "内容";
+    for (let depth = 0; ; depth += 1) {
+      columns.push({ title, entries, selectedPath: selectedEntryPath[depth] });
+      const selected = entries.find((entry) => entry.path === selectedEntryPath[depth]);
+      if (!selected || selected.kind !== "dir") break;
+      entries = selected.children ?? [];
+      title = selected.name;
+    }
+    return columns;
+  }, [selectedBatch, selectedEntryPath]);
+  const selectedDirectoryEntry = useMemo(() => {
+    let entries = entriesFromBatch(selectedBatch);
+    let selectedDir: ExportEntryItem | null = null;
+    for (const currentPath of selectedEntryPath) {
+      const entry = entries.find((item) => item.path === currentPath);
+      if (!entry || entry.kind !== "dir") break;
+      selectedDir = entry;
+      entries = entry.children ?? [];
+    }
+    return selectedDir;
+  }, [selectedBatch, selectedEntryPath]);
 
   const refresh = async () => {
     setStatus("正在读取导出目录…");
     try {
-      const next = await listExports();
+      const [next, taskData] = await Promise.all([
+        listExports(),
+        listGenerationTasks(8).catch(() => ({ tasks: [], totals: { count: 0, running: 0, failed: 0 } })),
+      ]);
       setData(next);
-      let current: { date: ExportDateGroup; batch: ExportBatchItem; video: ExportVideoItem } | null = null;
+      setTasks(taskData.tasks);
+      let current: { date: ExportDateGroup; batch: ExportBatchItem; video: ExportVideoItem; entryPath: string[] } | null = null;
       if (selectedVideo) {
         for (const date of next.dates) {
           for (const batch of date.batches) {
             const video = batch.videos.find((item) => item.path === selectedVideo.path);
-            if (video) current = { date, batch, video };
+            if (video) current = { date, batch, video, entryPath: findEntryPath(entriesFromBatch(batch), video.path) ?? [video.path] };
           }
         }
       }
@@ -83,12 +164,14 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
         setSelectedRoot(current.date.root);
         setSelectedDateDir(current.date.dir);
         setSelectedBatch(current.batch);
+        setSelectedEntryPath(current.entryPath);
         setSelectedVideo(current.video);
       } else {
         const first = selectFirstBatch(next);
         setSelectedRoot(first?.date.root ?? next.roots[0] ?? "");
         setSelectedDateDir(first?.date.dir ?? next.dates[0]?.dir ?? "");
         setSelectedBatch(first?.batch ?? null);
+        setSelectedEntryPath([]);
         setSelectedVideo(null);
       }
       setStatus(next.dates.length ? `共 ${next.dates.length} 天，${next.dates.reduce((sum, date) => sum + date.batches.length, 0)} 个批次，${next.dates.reduce((sum, date) => sum + date.count, 0)} 个视频` : "暂无导出视频");
@@ -115,6 +198,7 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     setSelectedRoot(root);
     setSelectedDateDir(firstDate?.dir ?? "");
     setSelectedBatch(firstBatch);
+    setSelectedEntryPath([]);
     setSelectedVideo(null);
     scrollToColumn(1);
   };
@@ -124,20 +208,28 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
     setSelectedRoot(date.root);
     setSelectedDateDir(date.dir);
     setSelectedBatch(firstBatch);
+    setSelectedEntryPath([]);
     setSelectedVideo(null);
     scrollToColumn(2);
   };
 
   const chooseBatch = (batch: ExportBatchItem) => {
     setSelectedBatch(batch);
+    setSelectedEntryPath([]);
     setSelectedVideo(null);
     scrollToColumn(3);
   };
 
-  const choose = (batch: ExportBatchItem, video: ExportVideoItem) => {
-    setSelectedBatch(batch);
-    setSelectedVideo(video);
-    scrollToColumn(3);
+  const chooseEntry = (entry: ExportEntryItem, depth: number) => {
+    const nextPath = [...selectedEntryPath.slice(0, depth), entry.path];
+    setSelectedEntryPath(nextPath);
+    if (entry.kind === "video") {
+      setSelectedVideo(videoFromEntry(entry));
+      scrollToColumn(3 + depth);
+    } else {
+      setSelectedVideo(null);
+      scrollToColumn(4 + depth);
+    }
   };
 
   const addRoot = async () => {
@@ -165,6 +257,7 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
         setSelectedRoot("");
         setSelectedDateDir("");
         setSelectedBatch(null);
+        setSelectedEntryPath([]);
         setSelectedVideo(null);
       }
       await refresh();
@@ -186,11 +279,12 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
 
   const addBatchToMaterialLibrary = async () => {
     if (!selectedBatch) return;
+    const targetDir = selectedDirectoryEntry?.path ?? selectedBatch.dir;
     try {
-      await saveMaterialSource(selectedBatch.dir, "reuse");
-      setStatus("已将批次目录加入素材仓库：成品复用");
+      await saveMaterialSource(targetDir, "reuse");
+      setStatus("已将目录加入素材仓库：成品复用");
     } catch (err) {
-      setStatus("批次目录加入素材仓库失败：" + (err as Error).message);
+      setStatus("目录加入素材仓库失败：" + (err as Error).message);
     }
   };
 
@@ -210,6 +304,21 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
             <span>产出浏览</span>
             <span className="muted">{totalVideos} 个视频</span>
           </div>
+          {tasks.length ? (
+            <div className="export-task-strip" aria-label="最近生成任务">
+              {tasks.map((task) => (
+                <div className={`export-task-card ${task.status}`} key={task.id} title={task.error || task.outputDir || task.inputPath}>
+                  <div>
+                    <b>{task.modeLabel}</b>
+                    <span>{taskStatusText(task.status)}</span>
+                  </div>
+                  <strong>{formatDurationMs(task.durationMs)}</strong>
+                  <em>{task.outputCount ? `${task.outputCount} 个产出` : task.status === "running" ? "正在生成" : "无产出"}</em>
+                  <small>{task.taskName}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="export-columns" ref={columnsRef}>
             <div className="export-column" data-export-column="0">
               <div className="export-column-h">目录</div>
@@ -270,21 +379,29 @@ export default function ExportLibrary({ mod }: { mod: ModuleDef }) {
                 </button>
               )) : <div className="task-empty">请选择日期</div>}
             </div>
-            <div className="export-column" data-export-column="3">
-              <div className="export-column-h">视频</div>
-              {selectedBatch?.videos.length ? selectedBatch.videos.map((video) => (
-                <button
-                  className={`export-column-row video ${selectedVideo?.path === video.path ? "active" : ""}`}
-                  key={video.path}
-                  type="button"
-                  onClick={() => choose(selectedBatch, video)}
-                  title={video.path}
-                >
-                  <span>{video.name}</span>
-                  <em>{formatBytes(video.size)}</em>
-                </button>
-              )) : <div className="task-empty">请选择批次</div>}
-            </div>
+            {selectedBatch ? contentColumns.map((column, depth) => (
+              <div className="export-column" data-export-column={3 + depth} key={`${selectedBatch.dir}-${depth}`}>
+                <div className="export-column-h" title={column.title}>{column.title}</div>
+                {column.entries.length ? column.entries.map((entry) => (
+                  <button
+                    className={`export-column-row ${entry.kind === "dir" ? "has-next dir" : "video"} ${column.selectedPath === entry.path ? "active" : ""}`}
+                    key={`${entry.kind}-${entry.path}`}
+                    type="button"
+                    onClick={() => chooseEntry(entry, depth)}
+                    title={entry.path}
+                  >
+                    <span>{entry.name}</span>
+                    <em>{entry.kind === "dir" ? `${entry.videoCount} 个视频` : formatBytes(entry.size ?? 0)}</em>
+                    {entry.kind === "dir" ? <b>{entry.videoCount}</b> : null}
+                  </button>
+                )) : <div className="task-empty">{depth ? "此目录暂无视频" : "此批次暂无视频"}</div>}
+              </div>
+            )) : (
+              <div className="export-column" data-export-column="3">
+                <div className="export-column-h">内容</div>
+                <div className="task-empty">请选择批次</div>
+              </div>
+            )}
           </div>
         </section>
 

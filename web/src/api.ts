@@ -46,6 +46,8 @@ export interface MixParams {
   fixedLastEndSec?: number;
   smartMix?: boolean;
   smartMaterialMode?: "raw" | "segments";
+  smartRerank?: boolean;
+  smartRerankTopK?: number;
   groupOutputs?: boolean;
   materialPaths?: string[];
   outputDir?: string;
@@ -205,6 +207,8 @@ export interface SmartMatchItem {
   reason: string;
   lexicalScore?: number;
   vectorScore?: number;
+  rerankScore?: number;
+  rerankReason?: string;
   durationSec?: number;
 }
 
@@ -228,6 +232,17 @@ export interface ExportVideoItem {
   modifiedAt: string;
 }
 
+export interface ExportEntryItem {
+  name: string;
+  path: string;
+  kind: "dir" | "video";
+  videoCount: number;
+  url?: string;
+  size?: number;
+  modifiedAt?: string;
+  children?: ExportEntryItem[];
+}
+
 export interface ExportBatchItem {
   name: string;
   dir: string;
@@ -238,6 +253,7 @@ export interface ExportBatchItem {
   manifest: string;
   videoCount: number;
   videos: ExportVideoItem[];
+  entries?: ExportEntryItem[];
 }
 
 export interface ExportDateGroup {
@@ -253,6 +269,31 @@ export interface ExportLibrary {
   root: string;
   roots: string[];
   dates: ExportDateGroup[];
+}
+
+export interface GenerationTaskRecord {
+  id: string;
+  mode: string;
+  modeLabel: string;
+  taskName: string;
+  status: "running" | "success" | "failed" | string;
+  inputPath: string;
+  outputDir: string;
+  manifestPath: string;
+  outputCount: number;
+  error: string;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number | null;
+}
+
+export interface GenerationTaskData {
+  tasks: GenerationTaskRecord[];
+  totals: {
+    count: number;
+    running: number;
+    failed: number;
+  };
 }
 
 export type MaterialLibraryCategory = "raw" | "segments" | "reuse" | "audio";
@@ -357,6 +398,59 @@ export type SegmentEvent =
     exportDir?: string;
     materialLibraryPath?: string;
     segments: SegmentClip[];
+  };
+
+export interface HighlightClipItem {
+  id: string;
+  name: string;
+  title: string;
+  reason: string;
+  score: number;
+  sourcePath: string;
+  sourceName: string;
+  startSec: number;
+  endSec: number;
+  durationSec: number;
+  timeRange?: string;
+  path: string;
+  url: string;
+}
+
+export interface HighlightCollectionItem {
+  id: string;
+  name: string;
+  title: string;
+  summary: string;
+  clipIds: string[];
+  path: string;
+  items?: Array<{
+    id: string;
+    title: string;
+    path: string;
+    score?: number;
+    timeRange?: string;
+  }>;
+}
+
+export type HighlightEvent =
+  | { type: "start"; total: number; settings: unknown }
+  | { type: "file"; index: number; total: number; name: string; path: string }
+  | { type: "log"; msg: string }
+  | { type: "analysis"; msg: string; video?: string }
+  | { type: "timeline"; msg: string; video?: string; outlines?: number }
+  | { type: "score"; msg: string; video?: string }
+  | { type: "clip"; name: string; sourceName: string; startSec: number; endSec: number; score: number }
+  | { type: "clip_done"; index: number; name: string; path: string; title: string; sourceName: string; startSec: number; endSec: number; durationSec: number; score: number }
+  | { type: "collection"; title: string; count: number }
+  | { type: "collection_done"; index: number; title: string; name: string; path: string; count: number }
+  | { type: "error"; msg: string }
+  | {
+    type: "done";
+    exportDir: string;
+    manifest: string;
+    materialLibraryPath?: string;
+    clips: HighlightClipItem[];
+    collections: HighlightCollectionItem[];
   };
 
 export interface DedupParams {
@@ -549,6 +643,52 @@ export async function segmentMaterials(
   }
 }
 
+export async function generateHighlightClips(
+  params: {
+    inputs: string;
+    srtPath?: string;
+    minDurationSec?: number;
+    maxDurationSec?: number;
+    minScore?: number;
+    maxClips?: number;
+    maxCollections?: number;
+    enableAsr?: boolean;
+    addToLibrary?: boolean;
+    exportQuality?: "standard" | "high" | "best";
+    outputDir?: string;
+  },
+  onEvent: (e: HighlightEvent) => void,
+): Promise<void> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/highlight-clips", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  if (!resp.ok || !resp.body) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(text.trim() || "高光切片接口无响应，请确认 `node server.mjs` 正在运行");
+  }
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (line) onEvent(JSON.parse(line) as HighlightEvent);
+    }
+  }
+}
+
 export async function rewriteCopy(text: string): Promise<string> {
   let resp: Response;
   try {
@@ -586,6 +726,16 @@ export async function listExports(): Promise<ExportLibrary> {
     throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
   }
   return readJson<ExportLibrary>(resp, "导出目录接口未返回数据");
+}
+
+export async function listGenerationTasks(limit = 20): Promise<GenerationTaskData> {
+  let resp: Response;
+  try {
+    resp = await fetch(`/api/tasks?limit=${encodeURIComponent(String(limit))}`);
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<GenerationTaskData>(resp, "任务记录接口未返回数据");
 }
 
 export async function listMaterialLibrary(): Promise<MaterialLibraryData> {

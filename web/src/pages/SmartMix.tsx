@@ -511,6 +511,8 @@ function FolderMixSettings({
   setFixedLastEndSec,
   smartMaterialMode,
   setSmartMaterialMode,
+  smartDeepMatch,
+  setSmartDeepMatch,
   smartOnly = false,
 }: {
   mixMode: MixMode;
@@ -553,6 +555,8 @@ function FolderMixSettings({
   setFixedLastEndSec: (value: number) => void;
   smartMaterialMode: SmartMaterialMode;
   setSmartMaterialMode: (value: SmartMaterialMode) => void;
+  smartDeepMatch: boolean;
+  setSmartDeepMatch: (value: boolean) => void;
   smartOnly?: boolean;
 }) {
   const chooseFixedFirst = () => {
@@ -586,6 +590,15 @@ function FolderMixSettings({
           <div className="mini-seg compact">
             <TogglePill active={smartMaterialMode === "segments"} onClick={() => setSmartMaterialMode("segments")}>已分割片段</TogglePill>
             <TogglePill active={smartMaterialMode === "raw"} onClick={() => setSmartMaterialMode("raw")}>原始长视频</TogglePill>
+          </div>
+        </div>
+      ) : null}
+      {smartOnly ? (
+        <div className="folder-setting-row">
+          <span>匹配方式</span>
+          <div className="mini-seg compact">
+            <TogglePill active={!smartDeepMatch} onClick={() => setSmartDeepMatch(false)}>快速匹配</TogglePill>
+            <TogglePill active={smartDeepMatch} onClick={() => setSmartDeepMatch(true)}>深度匹配</TogglePill>
           </div>
         </div>
       ) : null}
@@ -912,6 +925,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
   const [copyRewriteRevision, setCopyRewriteRevision] = useState(0);
   const [outCount, setOutCount] = useState(1);
   const [smartMaterialMode, setSmartMaterialMode] = useState<SmartMaterialMode>("segments");
+  const [smartDeepMatch, setSmartDeepMatch] = useState(false);
   const [materialCount, setMaterialCount] = useState(0);
   const [clipStartSec, setClipStartSec] = useState(0);
   const [clipEndSec, setClipEndSec] = useState(0);
@@ -1513,6 +1527,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
       videoProcessing,
       smartMix: isSmartMixModule,
       smartMaterialMode: isSmartMixModule ? smartMaterialMode : undefined,
+      smartRerank: isSmartMixModule ? smartDeepMatch : undefined,
+      smartRerankTopK: isSmartMixModule && smartDeepMatch ? 24 : undefined,
       groupOutputs,
     };
     try {
@@ -1637,6 +1653,7 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     { label: "素材数量", value: `${folderInfo?.count ?? 0} 个视频` },
     { label: "视频比例", value: aspectRatioSummary },
     ...(isSmartMixModule ? [{ label: "素材类型", value: smartMaterialMode === "segments" ? "已分割片段" : "原始长视频" }] : []),
+    ...(isSmartMixModule ? [{ label: "匹配方式", value: smartDeepMatch ? "深度匹配" : "快速匹配" }] : []),
     ...(mixMode === "copy" ? [{ label: "文案数量", value: `${validCopyCount} 条` }] : []),
     ...(mixMode === "audio" ? [{ label: "音频数量", value: `${validAudioCount} 个` }] : []),
     ...(fixedFirstEnabled && fixedFirstPath.trim() ? [{ label: "固定首素材", value: basename(fixedFirstPath) }] : []),
@@ -1801,21 +1818,24 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
 
         {/* 中：预览 + 文案/结果 */}
         <div className="col">
-          <div className="preview-h">
-            <b>视频预览</b>
+          <div className="preview-h" aria-label="视频预览设置">
             <div className="preview-tools">
-              <button className="mini-chip" type="button" onClick={onAddCustomText}>添加文字</button>
-              <span>视频比例:</span>
-              <div className="mini-seg compact">
-                <button className={aspectRatio === "auto" ? "active" : ""} type="button" onClick={() => setAspectRatio("auto")}>跟随素材</button>
-                <button className={aspectRatio === "9:16" ? "active" : ""} type="button" onClick={() => setAspectRatio("9:16")}>9:16</button>
-                <button className={aspectRatio === "16:9" ? "active" : ""} type="button" onClick={() => setAspectRatio("16:9")}>16:9</button>
+              <button className="mini-chip preview-add-text" type="button" onClick={onAddCustomText}>添加文字</button>
+              <div className="preview-tool-group">
+                <span className="preview-tool-label">比例</span>
+                <div className="mini-seg compact">
+                  <button className={aspectRatio === "auto" ? "active" : ""} type="button" onClick={() => setAspectRatio("auto")}>跟随素材</button>
+                  <button className={aspectRatio === "9:16" ? "active" : ""} type="button" onClick={() => setAspectRatio("9:16")}>9:16</button>
+                  <button className={aspectRatio === "16:9" ? "active" : ""} type="button" onClick={() => setAspectRatio("16:9")}>16:9</button>
+                </div>
+                {aspectRatio === "auto" ? <span className="ratio-hint">按多数 {resolvedAspectRatio}</span> : null}
               </div>
-              {aspectRatio === "auto" ? <span className="ratio-hint">按多数：{resolvedAspectRatio}</span> : null}
-              <span>填充方式:</span>
-              <div className="mini-seg compact">
-                <button className={fillMode === "blur" ? "active" : ""} type="button" onClick={() => setFillMode("blur")}>虚化</button>
-                <button className={fillMode === "black" ? "active" : ""} type="button" onClick={() => setFillMode("black")}>纯黑</button>
+              <div className="preview-tool-group">
+                <span className="preview-tool-label">填充</span>
+                <div className="mini-seg compact">
+                  <button className={fillMode === "blur" ? "active" : ""} type="button" onClick={() => setFillMode("blur")}>虚化</button>
+                  <button className={fillMode === "black" ? "active" : ""} type="button" onClick={() => setFillMode("black")}>纯黑</button>
+                </div>
               </div>
             </div>
           </div>
@@ -2171,6 +2191,8 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                   setFixedLastEndSec={setFixedLastEndSec}
                   smartMaterialMode={smartMaterialMode}
                   setSmartMaterialMode={setSmartMaterialMode}
+                  smartDeepMatch={smartDeepMatch}
+                  setSmartDeepMatch={setSmartDeepMatch}
                   smartOnly={isSmartMixModule}
                 />
               </div>

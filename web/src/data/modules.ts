@@ -33,9 +33,9 @@ export const CATS: Record<string, ModuleDef[]> = {
     { id: "text-rewrite", icon: "doc", name: "文案改写", ready: false,
       desc: "粘贴文案，AI 智能改写降低重复率 多个叙事视角，一次生成多个版本",
       tags: ["AI改写", "文案优化", "多版本"] },
-    { id: "live-clip", icon: "flame", name: "视频内容提炼", ready: false,
-      desc: "根据文案从长视频中提取有价值片段并重新组合，AI 智能识别 或 手动选取，可自定义Ai提示词。适用于电商带货、知识干货、vlog、直播访谈等场景",
-      tags: ["视频切片", "直播切片", "精华提取", "AI筛选"] },
+    { id: "live-clip", icon: "flame", name: "高光切片", ready: true,
+      desc: "从长视频中自动理解内容、定位话题时间段、评分并生成标题，输出可直接发布或复用的高光片段和合集。",
+      tags: ["高光切片", "直播切片", "精彩评分", "标题生成"] },
   ],
   效率工具: [
     { id: "material-library", icon: "layers", name: "素材仓库", ready: true,
@@ -68,18 +68,21 @@ function moduleById(id: string) {
   return mod;
 }
 
-/** 左侧导航只保留混剪主链路，其他模块先留在总模块表中。 */
+/** 左侧导航按主工作流收敛：混剪、分割、素材/产出。 */
 export const NAV_CATS: Record<string, ModuleDef[]> = {
   混剪生成: [
     moduleById("ai-smart-mix"),
     moduleById("interval-mix"),
   ],
-  素材资产: [
+  分割处理: [
     moduleById("smart-segment"),
+    moduleById("live-clip"),
+  ],
+  素材产出: [
     moduleById("material-library"),
     moduleById("export-library"),
   ],
 };
 
 /** 这些可用模块复用「混剪三栏」布局。 */
-export const MIX_LAYOUT_IDS = ["ai-smart-mix", "interval-mix", "category-mix", "live-clip", "video-effects"];
+export const MIX_LAYOUT_IDS = ["ai-smart-mix", "interval-mix", "category-mix", "video-effects"];

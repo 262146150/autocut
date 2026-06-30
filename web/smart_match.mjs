@@ -4,6 +4,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { FFMPEG, probeDuration, run } from "../poc/pipeline.mjs";
 import { cosineSimilarity, loadSmartOnnxProvider } from "./onnx_embedder.mjs";
+import { callArkText } from "./llm.mjs";
 
 const STOP_WORDS = new Set([
   "的", "了", "和", "与", "及", "在", "是", "有", "就", "都", "也", "很", "让", "把",
@@ -63,6 +64,15 @@ function rotate(items, offset) {
   return [...items.slice(start), ...items.slice(0, start)];
 }
 
+function extractJson(text) {
+  const raw = String(text || "").trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const body = fenced ? fenced[1].trim() : raw;
+  const match = body.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+  if (!match) throw new Error("AI匹配未返回有效结构");
+  return JSON.parse(match[0]);
+}
+
 function indexKey(items, modelKey = "") {
   const hash = createHash("sha1");
   hash.update(modelKey);
@@ -91,6 +101,81 @@ function clipText(clip) {
   const base = path.basename(clip, path.extname(clip));
   const dir = path.basename(path.dirname(clip));
   return `${dir} ${base}`;
+}
+
+function candidateCard(item, id) {
+  const indexedClip = item.indexedClip ?? {};
+  return {
+    id,
+    name: indexedClip.name || path.basename(item.clip),
+    directory: indexedClip.dirName || path.basename(path.dirname(item.clip)),
+    text: indexedClip.text || clipText(item.clip),
+    durationSec: Number((indexedClip.durationSec || item.durationSec || 0).toFixed?.(1) ?? 0),
+    localScore: Number(item.score.toFixed(3)),
+    lexicalScore: Number(item.lexicalScore.toFixed(3)),
+    vectorScore: Number(item.vectorScore.toFixed(3)),
+  };
+}
+
+async function rerankWithLlm(ranked, prompt, options = {}) {
+  const topK = Math.max(6, Math.min(40, Math.floor(Number(options.topK) || 24)));
+  const candidates = ranked.slice(0, topK);
+  const cards = candidates.map((item, index) => candidateCard(item, `c${index + 1}`));
+  const request = [
+    "你是短视频混剪的画面匹配助手。请根据用户文案，从候选素材中选出最适合承接这段文案的画面顺序。",
+    "判断依据：场景、动作、物体、人物状态、情绪氛围、内容主题、开头吸引力和画面连贯性。",
+    "候选素材已经过本地向量召回，localScore/vectorScore 只能作为参考；如果素材标题或目录语义更贴近文案，可以提高排序。",
+    "只输出 JSON 数组，不要解释。数组元素格式：",
+    "{\"id\":\"c1\",\"score\":0.92,\"reason\":\"20字以内匹配理由\"}",
+    "要求：只使用候选中的 id，不要新增 id；至少返回 8 个，按推荐顺序排列。",
+    "",
+    "用户文案：",
+    String(prompt || "").trim(),
+    "",
+    "候选素材：",
+    JSON.stringify(cards, null, 2),
+  ].join("\n");
+  const { text } = await callArkText(request, {
+    apiKey: options.apiKey,
+    model: options.model,
+    maxOutputTokens: 4096,
+  });
+  const parsed = extractJson(text);
+  const rows = Array.isArray(parsed) ? parsed : [];
+  const byId = new Map(rows.map((row) => [String(row?.id || ""), row]));
+  const candidateById = new Map(candidates.map((item, index) => [`c${index + 1}`, item]));
+  const used = new Set();
+  const reranked = [];
+  for (const row of rows) {
+    const id = String(row?.id || "");
+    const item = candidateById.get(id);
+    if (!item || used.has(id)) continue;
+    used.add(id);
+    const rawScore = Number(row?.score);
+    reranked.push({
+      ...item,
+      score: Number.isFinite(rawScore) ? Math.max(0, Math.min(1, rawScore)) : item.score,
+      reason: "llm-rerank",
+      rerankScore: Number.isFinite(rawScore) ? Math.max(0, Math.min(1, rawScore)) : null,
+      rerankReason: String(row?.reason || "").trim(),
+    });
+  }
+  for (let i = 0; i < candidates.length; i++) {
+    const id = `c${i + 1}`;
+    if (!used.has(id)) {
+      const row = byId.get(id);
+      reranked.push({
+        ...candidates[i],
+        rerankScore: row ? Number(row.score) || null : null,
+        rerankReason: row ? String(row.reason || "").trim() : "",
+      });
+    }
+  }
+  const rest = ranked.slice(candidates.length);
+  return {
+    ranked: [...reranked, ...rest],
+    topK: candidates.length,
+  };
 }
 
 async function extractThumb(clip, output, duration, ratio) {
@@ -208,6 +293,7 @@ export async function rankClipsForPrompt(clips, prompt, options = {}) {
       return {
         clip,
         index,
+        indexedClip,
         score,
         reason: vectorScore > 0 ? "onnx-vector" : score > 0 ? (indexedClip ? "smart-index" : "filename") : "fallback",
         lexicalScore,
@@ -217,24 +303,48 @@ export async function rankClipsForPrompt(clips, prompt, options = {}) {
       };
     })
     .sort((a, b) => b.score - a.score || a.index - b.index);
-  const ordered = ranked.map((item) => item.clip);
-  const hasMatch = ranked.some((item) => item.score > 0);
+  let finalRanked = ranked;
+  let reranked = false;
+  let rerankTopK = 0;
+  if (options.llm?.apiKey && ranked.length) {
+    try {
+      options.onEvent?.({ type: "log", msg: "深度匹配：正在重排候选画面" });
+      const result = await rerankWithLlm(ranked, prompt, {
+        apiKey: options.llm.apiKey,
+        model: options.llm.model,
+        topK: options.rerankTopK,
+      });
+      finalRanked = result.ranked;
+      reranked = true;
+      rerankTopK = result.topK;
+      options.onEvent?.({ type: "log", msg: `深度匹配：已重排 ${rerankTopK} 个候选画面` });
+    } catch (error) {
+      options.onEvent?.({ type: "log", msg: `深度匹配失败，已使用本地匹配：${error.message}` });
+    }
+  }
+  const ordered = finalRanked.map((item) => item.clip);
+  const hasMatch = finalRanked.some((item) => item.score > 0);
+  const baseEngine = textEmbedding && ranked.some((item) => item.vectorScore > 0)
+    ? options.index?.engine || "onnx-clip-v1"
+    : options.index?.engine
+      ? `${options.index.engine}${hasMatch ? "" : "-fallback"}`
+      : hasMatch ? "local-lexical-v1" : "local-lexical-v1-fallback";
   return {
     clips: hasMatch ? ordered : rotate(clips, fallbackOffset),
-    matches: ranked.slice(0, Math.min(8, ranked.length)).map((item) => ({
+    matches: finalRanked.slice(0, Math.min(8, finalRanked.length)).map((item) => ({
       name: path.basename(item.clip),
       score: Number(item.score.toFixed(3)),
       reason: item.reason,
       lexicalScore: Number(item.lexicalScore.toFixed(3)),
       vectorScore: Number(item.vectorScore.toFixed(3)),
+      rerankScore: item.rerankScore === undefined || item.rerankScore === null ? undefined : Number(item.rerankScore.toFixed(3)),
+      rerankReason: item.rerankReason || undefined,
       thumbs: item.thumbs,
       durationSec: item.durationSec,
     })),
-    engine: textEmbedding && ranked.some((item) => item.vectorScore > 0)
-      ? options.index?.engine || "onnx-clip-v1"
-      : options.index?.engine
-        ? `${options.index.engine}${hasMatch ? "" : "-fallback"}`
-        : hasMatch ? "local-lexical-v1" : "local-lexical-v1-fallback",
+    engine: reranked ? `${baseEngine}+llm-rerank` : baseEngine,
+    reranked,
+    rerankTopK,
     indexPath: options.index?.path,
   };
 }

@@ -16,6 +16,44 @@ function outputTextFromResponse(data) {
   return chunks.join("\n").trim();
 }
 
+export async function callArkText(prompt, options = {}) {
+  const key = apiKey(options);
+  if (!key) throw new Error("未配置火山 ARK API Key，请先在设置中填写");
+  const resp = await fetch(ARK_RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: options.model || DEFAULT_MODEL,
+      input: [
+        {
+          role: "user",
+          content: [{ type: "input_text", text: String(prompt || "") }],
+        },
+      ],
+      max_output_tokens: options.maxOutputTokens ?? 8192,
+    }),
+  });
+  const raw = await resp.text();
+  if (!resp.ok) {
+    throw new Error(raw.trim() || `AI请求失败：HTTP ${resp.status}`);
+  }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(`AI返回格式异常：${raw.slice(0, 120)}`);
+  }
+  const text = outputTextFromResponse(data);
+  if (!text) throw new Error("AI未返回内容");
+  return {
+    text,
+    usage: data.usage ?? null,
+  };
+}
+
 function normalizedText(value) {
   return String(value || "").replace(/\s+/g, "").replace(/[，。！？,.!?~～]/g, "").trim();
 }

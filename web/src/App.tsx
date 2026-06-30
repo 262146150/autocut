@@ -3,6 +3,7 @@ import { NavLink, Routes, Route, useParams, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import SmartMix from "./pages/SmartMix";
 import SmartSegment from "./pages/SmartSegment";
+import HighlightClip from "./pages/HighlightClip";
 import ExportLibrary from "./pages/ExportLibrary";
 import MaterialLibrary from "./pages/MaterialLibrary";
 import Settings from "./pages/Settings";
@@ -15,6 +16,7 @@ function ModulePage() {
   const mod = ALL.find((m) => m.id === id);
   if (!mod || !mod.ready) return <Navigate to="/" replace />;
   if (mod.id === "smart-segment") return <SmartSegment mod={mod} />;
+  if (mod.id === "live-clip") return <HighlightClip mod={mod} />;
   if (mod.id === "material-library") return <MaterialLibrary mod={mod} />;
   if (mod.id === "export-library") return <ExportLibrary mod={mod} />;
   return MIX_LAYOUT_IDS.includes(mod.id) ? <SmartMix mod={mod} /> : <Stub mod={mod} />;

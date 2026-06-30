@@ -12,6 +12,7 @@ import { rewriteCopy, testArkConnection } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
 import { buildSmartMaterialIndex, rankClipsForPrompt } from "./smart_match.mjs";
 import { buildSegmentLibrary } from "./segmenter.mjs";
+import { runHighlightClips } from "./highlight_clip.mjs";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dir, "dist");
@@ -304,8 +305,102 @@ function getMaterialDb() {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (user_id, key)
     );
+    CREATE TABLE IF NOT EXISTS generation_tasks (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL DEFAULT 1,
+      mode TEXT NOT NULL,
+      mode_label TEXT NOT NULL,
+      task_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      input_path TEXT,
+      output_dir TEXT,
+      manifest_path TEXT,
+      output_count INTEGER NOT NULL DEFAULT 0,
+      error TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      duration_ms INTEGER,
+      settings_json TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_generation_tasks_started ON generation_tasks(started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_generation_tasks_status ON generation_tasks(status);
   `);
   return materialDb;
+}
+
+function createTaskId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createGenerationTask({ mode, modeLabel, taskName, inputPath = "", settings = {} }) {
+  const id = createTaskId();
+  const startedAt = new Date().toISOString();
+  getMaterialDb().prepare(`
+    INSERT INTO generation_tasks (
+      id, user_id, mode, mode_label, task_name, status, input_path, started_at, settings_json
+    ) VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?)
+  `).run(
+    id,
+    DEFAULT_USER_ID,
+    String(mode || "unknown"),
+    String(modeLabel || "未知任务"),
+    String(taskName || "未命名任务"),
+    String(inputPath || ""),
+    startedAt,
+    JSON.stringify(settings ?? {}),
+  );
+  return id;
+}
+
+function finishGenerationTask(id, { status = "success", outputDir = "", manifestPath = "", outputCount = 0, error = "" } = {}) {
+  if (!id) return;
+  const db = getMaterialDb();
+  const row = db.prepare("SELECT started_at FROM generation_tasks WHERE id = ?").get(id);
+  if (!row) return;
+  const endedAt = new Date().toISOString();
+  const started = Date.parse(row.started_at);
+  const ended = Date.parse(endedAt);
+  const durationMs = Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, ended - started) : null;
+  db.prepare(`
+    UPDATE generation_tasks
+    SET status = ?, output_dir = ?, manifest_path = ?, output_count = ?, error = ?, ended_at = ?, duration_ms = ?
+    WHERE id = ?
+  `).run(
+    status,
+    String(outputDir || ""),
+    String(manifestPath || ""),
+    Math.max(0, Math.floor(Number(outputCount) || 0)),
+    String(error || ""),
+    endedAt,
+    durationMs,
+    id,
+  );
+}
+
+function listGenerationTasks(limit = 30) {
+  const rows = getMaterialDb().prepare(`
+    SELECT id, mode, mode_label, task_name, status, input_path, output_dir, manifest_path,
+      output_count, error, started_at, ended_at, duration_ms
+    FROM generation_tasks
+    WHERE user_id = ?
+    ORDER BY started_at DESC
+    LIMIT ?
+  `).all(DEFAULT_USER_ID, Math.max(1, Math.min(100, Math.floor(Number(limit) || 30))));
+  return rows.map((row) => ({
+    id: row.id,
+    mode: row.mode,
+    modeLabel: row.mode_label,
+    taskName: row.task_name,
+    status: row.status,
+    inputPath: row.input_path || "",
+    outputDir: row.output_dir || "",
+    manifestPath: row.manifest_path || "",
+    outputCount: Number(row.output_count) || 0,
+    error: row.error || "",
+    startedAt: row.started_at,
+    endedAt: row.ended_at || "",
+    durationMs: row.duration_ms ?? null,
+  }));
 }
 
 function maskSecret(value) {
@@ -618,6 +713,70 @@ async function collectExportVideos(dir) {
   return videos.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
 }
 
+async function readCollectionVideoEntries(dir) {
+  const manifestPath = path.join(dir, "collection.json");
+  if (!existsSync(manifestPath)) return [];
+  const collection = await readJsonFile(manifestPath);
+  const clips = Array.isArray(collection?.clips) ? collection.clips : [];
+  const entries = [];
+  const seen = new Set();
+  for (const clip of clips) {
+    const clipPath = String(clip?.path || "").trim();
+    if (!clipPath || seen.has(clipPath) || !existsSync(clipPath) || !isExportVideo(clipPath)) continue;
+    seen.add(clipPath);
+    const info = await stat(clipPath);
+    entries.push({
+      name: clip.title ? `${clip.order || entries.length + 1}. ${clip.title}` : path.basename(clipPath),
+      path: clipPath,
+      kind: "video",
+      videoCount: 1,
+      url: runFileUrl(clipPath),
+      size: info.size,
+      modifiedAt: info.mtime.toISOString(),
+    });
+  }
+  return entries;
+}
+
+async function buildExportEntries(dir) {
+  const entries = [...await readCollectionVideoEntries(dir)];
+  const ents = (await readdir(dir, { withFileTypes: true }))
+    .filter((ent) => !ent.name.startsWith(".") && ent.name !== "manifest.json" && ent.name !== "collection.json" && ent.name !== "clips.txt")
+    .sort((a, b) => {
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+      return a.name.localeCompare(b.name, "zh-Hans-CN", { numeric: true });
+    });
+  for (const ent of ents) {
+    const file = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      const children = await buildExportEntries(file);
+      const videoCount = children.reduce((sum, item) => sum + item.videoCount, 0);
+      if (!children.length) continue;
+      const info = await stat(file);
+      entries.push({
+        name: ent.name,
+        path: file,
+        kind: "dir",
+        videoCount,
+        modifiedAt: info.mtime.toISOString(),
+        children,
+      });
+    } else if (isExportVideo(ent.name)) {
+      const info = await stat(file);
+      entries.push({
+        name: ent.name,
+        path: file,
+        kind: "video",
+        videoCount: 1,
+        url: runFileUrl(file),
+        size: info.size,
+        modifiedAt: info.mtime.toISOString(),
+      });
+    }
+  }
+  return entries;
+}
+
 function splitCopyText(text) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim();
   if (!normalized) return [];
@@ -717,6 +876,8 @@ async function apiMix(req, res) {
     fixedLastEndSec = 0,
     smartMix = false,
     smartMaterialMode = "segments",
+    smartRerank = false,
+    smartRerankTopK = 24,
     exportQuality = "high",
     groupOutputs = true,
     outputDir = "",
@@ -724,6 +885,7 @@ async function apiMix(req, res) {
   const [w, h] = canvas.split("x").map(Number);
   res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
   const send = (o) => res.write(JSON.stringify(o) + "\n");
+  let taskId = "";
   try {
     await mkdir(RUN, { recursive: true });
     await rm(path.join(RUN, "work"), { recursive: true, force: true });
@@ -772,6 +934,30 @@ async function apiMix(req, res) {
         throw new Error(`音频文件不存在：${validAudioItems[audioIndex].path}`);
       }
     }
+    const arkSettings = smartMix && smartRerank ? volcengineSettings().ark : null;
+    if (smartMix && smartRerank && !arkSettings?.apiKey) {
+      throw new Error("深度匹配需要先在系统设置中配置火山 ARK API Key");
+    }
+    const mode = smartMix ? "smart" : copyMode ? "copy" : audioMode ? "audio" : "custom";
+    const modeLabel = smartMix ? "AI智能混剪" : copyMode ? "文案模式" : audioMode ? "音频模式" : "自定义模式";
+    const taskName = inputs && existsSync(inputs) ? path.basename(inputs) : "测试素材";
+    taskId = createGenerationTask({
+      mode,
+      modeLabel,
+      taskName,
+      inputPath: inputs && existsSync(inputs) ? inputs : "",
+      settings: {
+        canvas,
+        fillMode,
+        fps,
+        totalOut,
+        materialCount: sourceClips.length,
+        smartMix,
+        smartMaterialMode: smartMix ? smartMaterialMode : null,
+        exportQuality,
+        smartRerank: smartMix ? Boolean(smartRerank) : false,
+      },
+    });
     const shouldSegmentSmartMaterials = smartMix && smartMaterialMode === "raw";
     const segmentLibrary = shouldSegmentSmartMaterials
       ? await buildSegmentLibrary(sourceClips, {
@@ -831,13 +1017,11 @@ async function apiMix(req, res) {
           : `智能索引：完成 ${smartIndex.clips.length} 个素材`,
       });
     }
-    const modeLabel = smartMix ? "AI智能混剪" : copyMode ? "文案模式" : audioMode ? "音频模式" : "自定义模式";
-    const taskName = inputs && existsSync(inputs) ? path.basename(inputs) : "测试素材";
     const exportBatch = await createExportBatch({ outputDir, modeLabel, taskName });
     const manifest = {
       version: 1,
       createdAt: new Date().toISOString(),
-      mode: smartMix ? "smart" : copyMode ? "copy" : audioMode ? "audio" : "custom",
+      mode,
       modeLabel,
       source: {
         inputDir: inputs && existsSync(inputs) ? inputs : null,
@@ -898,6 +1082,8 @@ async function apiMix(req, res) {
         fixedLastEndSec,
         smartMix,
         smartMaterialMode: smartMix ? smartMaterialMode : null,
+        smartRerank: smartMix ? Boolean(smartRerank) : false,
+        smartRerankTopK: smartMix ? Math.max(6, Math.min(40, Math.floor(Number(smartRerankTopK) || 24))) : null,
         groupOutputs,
       },
       groups: [],
@@ -935,7 +1121,12 @@ async function apiMix(req, res) {
         } else {
           send({ type: "log", msg: `文案 ${copyIndex + 1} 未启用语音合成，按 ${duration.toFixed(1)} 秒生成…` });
         }
-        const smartMatch = smartMix ? await rankClipsForPrompt(clips, item.text, { index: smartIndex }) : null;
+        const smartMatch = smartMix ? await rankClipsForPrompt(clips, item.text, {
+          index: smartIndex,
+          llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
+          rerankTopK: smartRerankTopK,
+          onEvent: send,
+        }) : null;
         if (smartMatch) {
           const topMatches = smartMatch.matches.slice(0, 3).map((match) => `${match.name}(${match.score})`).join("、");
           send({
@@ -1016,6 +1207,11 @@ async function apiMix(req, res) {
       }
       const manifestPath = path.join(exportBatch.batchDir, "manifest.json");
       await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+      finishGenerationTask(taskId, {
+        outputDir: exportBatch.batchDir,
+        manifestPath,
+        outputCount: outputs.length,
+      });
       send({ type: "done", outputs: outputs.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
       res.end();
       return;
@@ -1037,7 +1233,12 @@ async function apiMix(req, res) {
         const duration = await probeDuration(item.path);
         if (!duration) throw new Error(`音频 ${audioIndex + 1} 时长读取失败`);
         const matchPrompt = item.text || item.name || path.basename(item.path);
-        const smartMatch = smartMix ? await rankClipsForPrompt(clips, matchPrompt, { index: smartIndex }) : null;
+        const smartMatch = smartMix ? await rankClipsForPrompt(clips, matchPrompt, {
+          index: smartIndex,
+          llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
+          rerankTopK: smartRerankTopK,
+          onEvent: send,
+        }) : null;
         if (smartMatch) {
           const topMatches = smartMatch.matches.slice(0, 3).map((match) => `${match.name}(${match.score})`).join("、");
           send({
@@ -1111,6 +1312,11 @@ async function apiMix(req, res) {
       }
       const manifestPath = path.join(exportBatch.batchDir, "manifest.json");
       await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+      finishGenerationTask(taskId, {
+        outputDir: exportBatch.batchDir,
+        manifestPath,
+        outputCount: outputs.length,
+      });
       send({ type: "done", outputs: outputs.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
       res.end();
       return;
@@ -1160,8 +1366,14 @@ async function apiMix(req, res) {
     });
     const manifestPath = path.join(exportBatch.batchDir, "manifest.json");
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+    finishGenerationTask(taskId, {
+      outputDir: exportBatch.batchDir,
+      manifestPath,
+      outputCount: results.length,
+    });
     send({ type: "done", outputs: results.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
   } catch (e) {
+    finishGenerationTask(taskId, { status: "failed", error: e.message });
     send({ type: "error", msg: e.message });
   }
   res.end();
@@ -1247,10 +1459,25 @@ async function apiSegments(req, res) {
   } = await readBody(req);
   res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
   const send = (o) => res.write(JSON.stringify(o) + "\n");
+  let taskId = "";
   try {
     if (!inputs || !existsSync(inputs)) throw new Error("素材路径不存在");
     const clips = await collectClips(inputs);
     if (!clips.length) throw new Error("该素材路径没有视频素材");
+    taskId = createGenerationTask({
+      mode: "segment",
+      modeLabel: "智能分割",
+      taskName: path.basename(inputs),
+      inputPath: inputs,
+      settings: {
+        sourceCount: clips.length,
+        threshold,
+        minDurationSec,
+        targetSegmentSec,
+        maxSegmentSec,
+        segmentMode,
+      },
+    });
     const exportBatch = await createExportBatch({
       outputDir,
       modeLabel: "智能分割",
@@ -1273,6 +1500,11 @@ async function apiSegments(req, res) {
       onEvent: send,
     });
     await addMaterialSource(exportBatch.batchDir, "segments");
+    finishGenerationTask(taskId, {
+      outputDir: exportBatch.batchDir,
+      manifestPath: library.path,
+      outputCount: library.segments.length,
+    });
     send({
       type: "done",
       engine: library.engine,
@@ -1287,7 +1519,104 @@ async function apiSegments(req, res) {
       })),
     });
   } catch (e) {
+    finishGenerationTask(taskId, { status: "failed", error: e.message });
     send({ type: "error", msg: e.message });
+  }
+  res.end();
+}
+
+async function apiHighlightClips(req, res) {
+  const {
+    inputs,
+    srtPath = "",
+    minDurationSec = 60,
+    maxDurationSec = 360,
+    minScore = 0.65,
+    maxClips = 8,
+    maxCollections = 2,
+    enableAsr = true,
+    addToLibrary = true,
+    exportQuality = "high",
+    outputDir = "",
+  } = await readBody(req);
+  res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
+  const send = (o) => res.write(JSON.stringify(o) + "\n");
+  let taskId = "";
+  try {
+    if (!inputs || !existsSync(inputs)) throw new Error("视频路径不存在");
+    const clips = await collectClips(inputs);
+    if (!clips.length) throw new Error("该路径没有可处理的视频");
+    const settings = volcengineSettings();
+    if (!settings.ark.apiKey) throw new Error("未配置火山 ARK API Key，请先在系统设置中填写");
+    taskId = createGenerationTask({
+      mode: "highlight",
+      modeLabel: "高光切片",
+      taskName: path.basename(inputs),
+      inputPath: inputs,
+      settings: {
+        sourceCount: clips.length,
+        minDurationSec,
+        maxDurationSec,
+        minScore,
+        maxClips,
+        maxCollections,
+        enableAsr,
+        exportQuality,
+      },
+    });
+    const exportBatch = await createExportBatch({
+      outputDir,
+      modeLabel: "高光切片",
+      taskName: path.basename(inputs),
+    });
+    const result = await runHighlightClips(clips, {
+      outputDir: exportBatch.batchDir,
+      srtPath,
+      minDurationSec,
+      maxDurationSec,
+      minScore,
+      maxClips,
+      maxCollections,
+      enableAsr,
+      exportQuality,
+      workDir: path.join(RUN, "highlight-work"),
+      asrCacheDir: path.join(CACHE, "asr"),
+      llm: {
+        apiKey: settings.ark.apiKey,
+        model: settings.ark.model,
+      },
+      onEvent: (event) => {
+        if (event.type === "log") {
+          send({ type: "log", msg: event.msg });
+          return;
+        }
+        send(event);
+      },
+    });
+    if (addToLibrary && result.clips.length) {
+      await addMaterialSource(path.join(exportBatch.batchDir, "clips"), "segments");
+    }
+    finishGenerationTask(taskId, {
+      outputDir: exportBatch.batchDir,
+      manifestPath: result.manifestPath,
+      outputCount: result.clips.length,
+    });
+    send({
+      type: "done",
+      exportDir: exportBatch.batchDir,
+      manifest: result.manifestPath,
+      materialLibraryPath: addToLibrary && result.clips.length ? path.join(exportBatch.batchDir, "clips") : "",
+      clips: result.clips.map((clip) => ({
+        ...clip,
+        url: runFileUrl(clip.path),
+      })),
+      collections: result.collections.map((collection) => ({
+        ...collection,
+      })),
+    });
+  } catch (e) {
+    finishGenerationTask(taskId, { status: "failed", error: safeErrorMessage(e, [volcengineSettings().ark.apiKey]) });
+    send({ type: "error", msg: safeErrorMessage(e, [volcengineSettings().ark.apiKey]) });
   }
   res.end();
 }
@@ -1324,7 +1653,8 @@ async function apiExports(req, res) {
         const manifestPath = path.join(dir, "manifest.json");
         const manifest = existsSync(manifestPath) ? await readJsonFile(manifestPath) : null;
         const videos = await collectExportVideos(dir);
-        if (!videos.length && !manifest) continue;
+        const entries = await buildExportEntries(dir);
+        if (!videos.length && !entries.length && !manifest) continue;
         batches.push({
           name: path.basename(dir),
           dir,
@@ -1335,6 +1665,7 @@ async function apiExports(req, res) {
           manifest: existsSync(manifestPath) ? manifestPath : "",
           videoCount: videos.length,
           videos,
+          entries,
         });
       }
       batches.sort((a, b) => b.name.localeCompare(a.name));
@@ -1353,6 +1684,21 @@ async function apiExports(req, res) {
   dates.sort((a, b) => b.date.localeCompare(a.date) || b.root.localeCompare(a.root));
   res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
   res.end(JSON.stringify({ root: defaultExportRoot(), roots, dates }));
+}
+
+async function apiGenerationTasks(req, res) {
+  const url = new URL(req.url, "http://x");
+  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit")) || 30));
+  const tasks = listGenerationTasks(limit);
+  res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+  res.end(JSON.stringify({
+    tasks,
+    totals: {
+      count: tasks.length,
+      running: tasks.filter((task) => task.status === "running").length,
+      failed: tasks.filter((task) => task.status === "failed").length,
+    },
+  }));
 }
 
 async function apiExportRoots(req, res) {
@@ -1599,11 +1945,13 @@ http
     try {
       if ((req.method === "GET" || req.method === "HEAD") && req.url.startsWith("/api/media")) return await apiMedia(req, res);
       if (req.method === "GET" && req.url.startsWith("/api/exports")) return await apiExports(req, res);
+      if (req.method === "GET" && req.url.startsWith("/api/tasks")) return await apiGenerationTasks(req, res);
       if (req.method === "POST" && req.url === "/api/export-roots") return await apiExportRoots(req, res);
       if (req.method === "GET" && req.url.startsWith("/api/material-library")) return await apiMaterialLibrary(req, res);
       if (req.method === "POST" && req.url === "/api/material-library") return await apiMaterialLibrary(req, res);
       if (req.method === "POST" && req.url === "/api/materials") return await apiMaterials(req, res);
       if (req.method === "POST" && req.url === "/api/segments") return await apiSegments(req, res);
+      if (req.method === "POST" && req.url === "/api/highlight-clips") return await apiHighlightClips(req, res);
       if (req.method === "POST" && req.url === "/api/mix") return await apiMix(req, res);
       if (req.method === "POST" && req.url === "/api/rewrite-copy") return await apiRewriteCopy(req, res);
       if (req.method === "POST" && req.url === "/api/tts") return await apiTts(req, res);
