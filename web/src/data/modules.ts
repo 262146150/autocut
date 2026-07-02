@@ -47,8 +47,8 @@ export const CATS: Record<string, ModuleDef[]> = {
     { id: "subtitle", icon: "caption", name: "字幕识别", ready: false,
       desc: "本地语音识别(ASR)，导出 SRT/词级时间戳，支持多语言与关键词。",
       tags: ["语音识别", "SRT", "词级时间戳", "多语言"] },
-    { id: "image-to-video", icon: "image", name: "图片转视频", ready: false,
-      desc: "图片批量合成视频，支持运镜、转场与配乐。", tags: ["图片成片", "运镜", "转场"] },
+    { id: "image-to-video", icon: "image", name: "图片转视频", ready: true,
+      desc: "用文案或音频智能匹配图片素材，自动生成带运镜、配音和字幕的图片视频。", tags: ["图片成片", "文案匹配", "运镜"] },
     { id: "file-rename", icon: "tag", name: "文件重命名", ready: false,
       desc: "批量规则重命名，前后缀/序号/智能命名。", tags: ["批量", "规则", "前后缀"] },
     { id: "poster", icon: "poster", name: "封面设计", ready: false,
@@ -73,6 +73,7 @@ export const NAV_CATS: Record<string, ModuleDef[]> = {
   混剪生成: [
     moduleById("ai-smart-mix"),
     moduleById("interval-mix"),
+    moduleById("image-to-video"),
   ],
   分割处理: [
     moduleById("smart-segment"),

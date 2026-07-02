@@ -6,13 +6,15 @@ import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promi
 import { createReadStream, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, hasAudioStream, rm } from "../poc/pipeline.mjs";
 import { rewriteCopy, testArkConnection } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
-import { buildSmartMaterialIndex, rankClipsForPrompt } from "./smart_match.mjs";
+import { buildSmartImageIndex, buildSmartMaterialIndex, rankClipsForPrompt, rankImagesForPrompt } from "./smart_match.mjs";
 import { buildSegmentLibrary } from "./segmenter.mjs";
 import { runHighlightClips } from "./highlight_clip.mjs";
+import { audioDuration, normalizeSceneDuration, runImageVideo } from "./image_video.mjs";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dir, "dist");
@@ -22,12 +24,13 @@ const EXPORT_ROOTS_FILE = path.join(RUN, "export_roots.json");
 const MATERIAL_LIBRARY_FILE = path.join(RUN, "material_library.json");
 const MATERIAL_DB_FILE = path.join(RUN, "ecutauto.db");
 const DEFAULT_USER_ID = 1;
+const AUTH_SERVICE_URL = (process.env.AUTH_SERVICE_URL || "http://localhost:8899").replace(/\/+$/, "");
 const TTS_TEST_TEXT = "测试";
 const TTS_TEST_SEED_RESOURCE_ID = "seed-tts-2.0";
 const TTS_TEST_SEED_SPEAKER = "zh_female_vv_uranus_bigtts";
 const TTS_TEST_10029_RESOURCE_ID = "volc.service_type.10029";
 const TTS_TEST_10029_SPEAKER = "zh_male_beijingxiaoye_emo_v2_mars_bigtts";
-const PORT = 8787;
+const PORT = Number(process.env.PORT || 8787);
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
   ".mp4": "video/mp4", ".mov": "video/quicktime", ".mkv": "video/x-matroska", ".webm": "video/webm",
@@ -173,6 +176,7 @@ const MATERIAL_CATEGORY_LABELS = {
   segments: "分割片段",
   reuse: "成品复用",
   audio: "音频素材",
+  image: "图片素材",
 };
 
 function normalizeMaterialCategory(value) {
@@ -188,8 +192,33 @@ function isVideoMaterialFile(file) {
   return /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(file);
 }
 
+function isImageMaterialFile(file) {
+  return /\.(png|jpe?g|webp|bmp|gif|tiff?|avif)$/i.test(file);
+}
+
 function isMaterialFile(file) {
-  return isVideoMaterialFile(file) || isAudioFile(file);
+  return isVideoMaterialFile(file) || isAudioFile(file) || isImageMaterialFile(file);
+}
+
+async function collectImages(input) {
+  const info = await stat(input);
+  if (info.isFile()) return isImageMaterialFile(input) ? [input] : [];
+
+  const out = [];
+  async function walk(current) {
+    const ents = await readdir(current, { withFileTypes: true });
+    for (const ent of ents) {
+      if (ent.name.startsWith(".")) continue;
+      const file = path.join(current, ent.name);
+      if (ent.isDirectory()) {
+        await walk(file);
+      } else if (isImageMaterialFile(ent.name)) {
+        out.push(file);
+      }
+    }
+  }
+  await walk(input);
+  return out.sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
 }
 
 async function collectMaterialFiles(input) {
@@ -236,10 +265,11 @@ function normalizeMaterialRoots(data) {
 async function inspectMaterialItem(file, rootPath, category) {
   const info = await stat(file);
   const isVideo = isVideoMaterialFile(file);
-  const durationSec = await probeDuration(file);
-  const size = isVideo ? await probeVideoSize(file) : null;
-  const orientation = isVideo ? classifyVideoSize(size) : "audio";
-  const audio = isVideo ? await hasAudioStream(file) : true;
+  const isImage = isImageMaterialFile(file);
+  const durationSec = isImage ? 0 : await probeDuration(file);
+  const size = isVideo || isImage ? await probeVideoSize(file) : null;
+  const orientation = isVideo || isImage ? classifyVideoSize(size) : "audio";
+  const audio = isVideo ? await hasAudioStream(file) : isImage ? false : true;
   return {
     name: path.basename(file),
     path: file,
@@ -247,7 +277,7 @@ async function inspectMaterialItem(file, rootPath, category) {
     rootPath,
     category,
     categoryLabel: MATERIAL_CATEGORY_LABELS[category],
-    kind: isVideo ? "video" : "audio",
+    kind: isImage ? "image" : isVideo ? "video" : "audio",
     size: info.size,
     modifiedAt: info.mtime.toISOString(),
     durationSec,
@@ -305,6 +335,20 @@ function getMaterialDb() {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (user_id, key)
     );
+    CREATE TABLE IF NOT EXISTS auth_client (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      device_id TEXT NOT NULL,
+      token TEXT,
+      account TEXT,
+      name TEXT,
+      remote_user_id INTEGER,
+      license_type TEXT,
+      license_expires_at TEXT,
+      license_status TEXT,
+      license_device_id TEXT,
+      last_checked_at TEXT,
+      updated_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS generation_tasks (
       id TEXT PRIMARY KEY,
       user_id INTEGER NOT NULL DEFAULT 1,
@@ -324,7 +368,30 @@ function getMaterialDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_generation_tasks_started ON generation_tasks(started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_generation_tasks_status ON generation_tasks(status);
+    CREATE TABLE IF NOT EXISTS client_event_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event TEXT NOT NULL,
+      module TEXT,
+      success INTEGER,
+      duration_ms INTEGER,
+      error_code TEXT,
+      meta_json TEXT,
+      created_at TEXT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_client_event_queue_created ON client_event_queue(created_at);
   `);
+  for (const sql of [
+    "ALTER TABLE auth_client ADD COLUMN license_status TEXT",
+    "ALTER TABLE auth_client ADD COLUMN license_device_id TEXT",
+  ]) {
+    try {
+      materialDb.exec(sql);
+    } catch {
+      // Existing local databases may already have the column.
+    }
+  }
   return materialDb;
 }
 
@@ -401,6 +468,323 @@ function listGenerationTasks(limit = 30) {
     endedAt: row.ended_at || "",
     durationMs: row.duration_ms ?? null,
   }));
+}
+
+function localAuthRow() {
+  return getMaterialDb().prepare("SELECT * FROM auth_client WHERE id = 1").get();
+}
+
+function ensureDeviceId() {
+  const row = localAuthRow();
+  if (row?.device_id) return row.device_id;
+  const nowIso = new Date().toISOString();
+  const deviceId = randomUUID();
+  getMaterialDb().prepare(`
+    INSERT INTO auth_client (id, device_id, updated_at)
+    VALUES (1, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET device_id = excluded.device_id, updated_at = excluded.updated_at
+  `).run(deviceId, nowIso);
+  return deviceId;
+}
+
+function cachedAuthStatus() {
+  const row = localAuthRow();
+  if (!row?.token) {
+    return {
+      registered: false,
+      active: false,
+      expired: false,
+      reason: "unauthenticated",
+      user: null,
+      license: null,
+      serviceUrl: AUTH_SERVICE_URL,
+    };
+  }
+  const expiresAt = row.license_expires_at || "";
+  const expiresMs = Date.parse(expiresAt);
+  const licenseStatus = row.license_status || "";
+  const active = licenseStatus === "active" && Number.isFinite(expiresMs) && expiresMs > Date.now();
+  const daysRemaining = active ? Math.max(0, Math.ceil((expiresMs - Date.now()) / 86400000)) : 0;
+  return {
+    registered: true,
+    active,
+    expired: Boolean(licenseStatus === "expired" || (expiresAt && !active && licenseStatus !== "device_mismatch")),
+    reason: active ? "active" : licenseStatus || (expiresAt ? "expired" : "inactive"),
+    user: {
+      id: row.remote_user_id,
+      account: row.account || "",
+      name: row.name || "",
+    },
+    license: {
+      type: row.license_type || "",
+      expiresAt,
+      daysRemaining,
+      deviceId: row.license_device_id || "",
+    },
+    serviceUrl: AUTH_SERVICE_URL,
+    lastCheckedAt: row.last_checked_at || "",
+  };
+}
+
+function saveAuthSession({ token = "", user = null, license = null } = {}) {
+  const row = localAuthRow();
+  const nowIso = new Date().toISOString();
+  const deviceId = row?.device_id || ensureDeviceId();
+  const licenseStatus = license?.active
+    ? "active"
+    : license?.deviceMismatch
+      ? "device_mismatch"
+      : license?.expired
+        ? "expired"
+        : "inactive";
+  getMaterialDb().prepare(`
+    INSERT INTO auth_client (
+      id, device_id, token, account, name, remote_user_id,
+      license_type, license_expires_at, license_status, license_device_id, last_checked_at, updated_at
+    ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      device_id = excluded.device_id,
+      token = COALESCE(NULLIF(excluded.token, ''), auth_client.token),
+      account = excluded.account,
+      name = excluded.name,
+      remote_user_id = excluded.remote_user_id,
+      license_type = excluded.license_type,
+      license_expires_at = excluded.license_expires_at,
+      license_status = excluded.license_status,
+      license_device_id = excluded.license_device_id,
+      last_checked_at = excluded.last_checked_at,
+      updated_at = excluded.updated_at
+  `).run(
+    deviceId,
+    token,
+    user?.account || "",
+    user?.name || "",
+    user?.id ?? null,
+    license?.type || "",
+    license?.expiresAt || "",
+    licenseStatus,
+    license?.deviceId || license?.boundDeviceId || "",
+    nowIso,
+    nowIso,
+  );
+  return cachedAuthStatus();
+}
+
+function clearAuthSession() {
+  const deviceId = ensureDeviceId();
+  getMaterialDb().prepare(`
+    UPDATE auth_client
+    SET token = NULL, account = NULL, name = NULL, remote_user_id = NULL,
+      license_type = NULL, license_expires_at = NULL, license_status = NULL,
+      license_device_id = NULL, last_checked_at = NULL, updated_at = ?
+    WHERE id = 1
+  `).run(new Date().toISOString());
+  return { ...cachedAuthStatus(), deviceId };
+}
+
+async function requireActiveLicense() {
+  const status = await refreshRemoteAuthStatus({ allowCache: false });
+  if (status.active) return status;
+  const msg = status.reason === "device_mismatch"
+    ? "当前授权已绑定到其他设备，请使用本机激活码或联系管理员处理"
+    : status.expired
+      ? "授权已过期，请重新激活后继续使用"
+      : "请先登录并激活后继续使用";
+  const error = new Error(msg);
+  error.statusCode = 403;
+  throw error;
+}
+
+function errorStatusCode(error, fallback = 500) {
+  const code = Number(error?.statusCode);
+  return code >= 400 && code < 600 ? code : fallback;
+}
+
+async function requestAuthService(endpoint, { method = "GET", token = "", body = null } = {}) {
+  const headers = {
+    "content-type": "application/json",
+    "x-device-id": ensureDeviceId(),
+  };
+  if (token) headers.authorization = `Bearer ${token}`;
+  let resp;
+  try {
+    resp = await fetch(`${AUTH_SERVICE_URL}${endpoint}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    const error = new Error("无法连接授权服务，请确认授权服务已启动或网络可用");
+    error.statusCode = 503;
+    throw error;
+  }
+  const text = await resp.text();
+  let data = null;
+  if (text.trim()) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text.trim() };
+    }
+  }
+  if (!resp.ok) {
+    const error = new Error(data?.message || data?.error || `授权服务请求失败：HTTP ${resp.status}`);
+    error.statusCode = resp.status;
+    throw error;
+  }
+  return data ?? {};
+}
+
+async function refreshRemoteAuthStatus({ allowCache = true } = {}) {
+  const row = localAuthRow();
+  if (!row?.token) return cachedAuthStatus();
+  try {
+    const data = await requestAuthService("/api/license/status", { token: row.token });
+    return saveAuthSession({ token: row.token, user: data.user, license: data.license });
+  } catch (error) {
+    if (error.statusCode === 401) {
+      clearAuthSession();
+      return cachedAuthStatus();
+    }
+    if (!allowCache) throw error;
+    return {
+      ...cachedAuthStatus(),
+      warning: error.message,
+      reason: cachedAuthStatus().active ? "cached" : cachedAuthStatus().reason,
+    };
+  }
+}
+
+function sanitizeEventMeta(value, depth = 0) {
+  if (depth > 3 || value === null || value === undefined) return value ?? null;
+  if (Array.isArray(value)) return value.slice(0, 20).map((item) => sanitizeEventMeta(item, depth + 1));
+  if (typeof value === "object") {
+    const output = {};
+    for (const [key, raw] of Object.entries(value)) {
+      if (/path|file|dir|url|token|key|secret|code|text|copy|prompt/i.test(key)) continue;
+      output[key] = sanitizeEventMeta(raw, depth + 1);
+    }
+    return output;
+  }
+  if (typeof value === "string") return value.length > 160 ? `${value.slice(0, 160)}...` : value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  return String(value).slice(0, 160);
+}
+
+function queueClientEvent(event) {
+  getMaterialDb().prepare(`
+    INSERT INTO client_event_queue (event, module, success, duration_ms, error_code, meta_json, created_at, last_error)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    event.event,
+    event.module || "",
+    typeof event.success === "boolean" ? (event.success ? 1 : 0) : null,
+    event.durationMs ?? null,
+    event.errorCode || "",
+    JSON.stringify(event.meta || {}),
+    event.createdAt,
+    event.lastError || "",
+  );
+}
+
+async function sendClientEvents(events) {
+  if (!events.length) return { accepted: 0 };
+  const row = localAuthRow();
+  return await requestAuthService("/api/client/events", {
+    method: "POST",
+    token: row?.token || "",
+    body: { events },
+  });
+}
+
+async function flushClientEventQueue() {
+  const db = getMaterialDb();
+  const rows = db.prepare(`
+    SELECT * FROM client_event_queue
+    WHERE attempts < 5
+    ORDER BY id ASC
+    LIMIT 30
+  `).all();
+  if (!rows.length) return;
+  const events = rows.map((row) => ({
+    event: row.event,
+    module: row.module || "",
+    success: row.success === null ? null : Boolean(row.success),
+    durationMs: row.duration_ms ?? null,
+    errorCode: row.error_code || "",
+    meta: JSON.parse(row.meta_json || "{}"),
+    createdAt: row.created_at,
+  }));
+  try {
+    await sendClientEvents(events);
+    db.prepare(`DELETE FROM client_event_queue WHERE id IN (${rows.map(() => "?").join(",")})`)
+      .run(...rows.map((row) => row.id));
+  } catch (error) {
+    const nowError = String(error.message || "send failed").slice(0, 240);
+    const update = db.prepare("UPDATE client_event_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?");
+    for (const row of rows) update.run(nowError, row.id);
+  }
+}
+
+async function trackClientEvent(event, {
+  module = "",
+  success = null,
+  durationMs = null,
+  errorCode = "",
+  meta = {},
+} = {}) {
+  const payload = {
+    event: String(event || "").trim(),
+    module: String(module || "").trim(),
+    success,
+    durationMs: durationMs === null || durationMs === undefined ? null : Math.max(0, Math.floor(Number(durationMs) || 0)),
+    errorCode: String(errorCode || "").slice(0, 120),
+    meta: sanitizeEventMeta(meta || {}),
+    createdAt: new Date().toISOString(),
+    appVersion: "mvp",
+  };
+  if (!payload.event) return;
+  try {
+    await sendClientEvents([payload]);
+    await flushClientEventQueue();
+  } catch (error) {
+    queueClientEvent({ ...payload, lastError: error.message });
+  }
+}
+
+async function registerRemoteUser({ account, password, name }) {
+  const data = await requestAuthService("/api/register", {
+    method: "POST",
+    body: { account, password, name },
+  });
+  return saveAuthSession({ token: data.token, user: data.user, license: data.license });
+}
+
+async function loginRemoteUser({ account, password }) {
+  const data = await requestAuthService("/api/login", {
+    method: "POST",
+    body: { account, password },
+  });
+  return saveAuthSession({ token: data.token, user: data.user, license: data.license });
+}
+
+async function activateRemoteLicense(code) {
+  const row = localAuthRow();
+  if (!row?.token) {
+    const error = new Error("请先注册或登录账号");
+    error.statusCode = 401;
+    throw error;
+  }
+  const data = await requestAuthService("/api/license/activate", {
+    method: "POST",
+    token: row.token,
+    body: {
+      activationCode: code,
+      deviceId: ensureDeviceId(),
+      deviceName: process.env.COMPUTERNAME || process.env.HOSTNAME || "desktop",
+    },
+  });
+  return saveAuthSession({ token: row.token, user: data.user, license: data.license });
 }
 
 function maskSecret(value) {
@@ -558,7 +942,7 @@ async function scanMaterialRoot(rootPath) {
           rootPath: root.path,
           category: root.category,
           categoryLabel: MATERIAL_CATEGORY_LABELS[root.category],
-          kind: isAudioFile(file) ? "audio" : "video",
+          kind: isImageMaterialFile(file) ? "image" : isAudioFile(file) ? "audio" : "video",
           valid: false,
         });
       }
@@ -830,6 +1214,287 @@ function copySubtitlePayload(text, duration, style) {
   };
 }
 
+function splitCopyScenes(text) {
+  const parts = String(text || "")
+    .split(/[\r\n。！？!?；;]+|(?<=，|,)/u)
+    .map((item) => item.replace(/[，,。！？!?；;]+$/u, "").trim())
+    .filter(Boolean);
+  return parts.length ? parts.slice(0, 40) : [String(text || "").trim()].filter(Boolean);
+}
+
+function pickRankedImages(rankedImages, count, allowRepeat) {
+  const source = rankedImages.filter(Boolean);
+  if (!source.length) return [];
+  const targetCount = Math.max(1, Math.floor(Number(count) || 1));
+  if (!allowRepeat && source.length < targetCount) {
+    throw new Error("图片数量不足：请开启允许重复，或减少单条视频使用图片数");
+  }
+  const out = source.slice(0, Math.min(targetCount, source.length));
+  while (out.length < targetCount) {
+    out.push(source[out.length % source.length]);
+  }
+  return out;
+}
+
+function defaultTtsVoice() {
+  return {
+    speaker: "zh_female_vv_uranus_bigtts",
+    resourceId: "seed-tts-2.0",
+    name: "Vivi 2.0",
+  };
+}
+
+async function apiImageVideo(req, res) {
+  const {
+    inputs,
+    canvas = "1080x1920",
+    fillMode = "blur",
+    fps = 30,
+    mode = "copy",
+    copyItems = [],
+    audioItems = [],
+    variants = 1,
+    imageCount = 0,
+    sceneDurationSec = 3,
+    allowImageReuse = true,
+    motionMode = "zoomIn",
+    transition = "fade",
+    subtitleEnabled = true,
+    subtitleStyle = null,
+    voiceEnabled = true,
+    copyVoiceSpeechRate = 0,
+    copyVoiceLoudnessRate = 0,
+    voice = null,
+    voiceVolume = 100,
+    bgmEnabled = false,
+    bgmPath = "",
+    bgmVolume = 30,
+    exportQuality = "high",
+    smartRerank = false,
+    smartRerankTopK = 24,
+    outputDir = "",
+  } = await readBody(req);
+  const [w, h] = String(canvas).split("x").map(Number);
+  res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
+  const send = (o) => res.write(JSON.stringify(o) + "\n");
+  let taskId = "";
+  const opStartedAt = Date.now();
+  let sourceCount = 0;
+  try {
+    await requireActiveLicense();
+    if (!inputs || !existsSync(inputs)) throw new Error("图片素材路径不存在");
+    const images = await collectImages(inputs);
+    if (!images.length) throw new Error("该路径没有图片素材");
+    sourceCount = images.length;
+    const validCopyItems = Array.isArray(copyItems)
+      ? copyItems.map((item, index) => ({
+        id: String(item?.id || `copy-${index + 1}`),
+        text: String(item?.text || "").trim(),
+      })).filter((item) => item.text)
+      : [];
+    const validAudioItems = Array.isArray(audioItems)
+      ? audioItems.map((item, index) => ({
+        id: String(item?.id || `audio-${index + 1}`),
+        path: String(item?.path || "").trim(),
+        text: String(item?.text || "").trim(),
+        name: String(item?.name || "").trim(),
+      })).filter((item) => item.path)
+      : [];
+    const imageMode = mode === "audio" ? "audio" : "copy";
+    if (imageMode === "copy" && !validCopyItems.length) throw new Error("请先填写文案");
+    if (imageMode === "audio" && !validAudioItems.length) throw new Error("请先添加音频");
+    for (const item of validAudioItems) {
+      if (!existsSync(item.path)) throw new Error(`音频文件不存在：${item.path}`);
+    }
+    const variantsPerItem = Math.max(1, Math.floor(Number(variants) || 1));
+    const totalOut = (imageMode === "copy" ? validCopyItems.length : validAudioItems.length) * variantsPerItem;
+    const taskName = path.basename(inputs);
+    taskId = createGenerationTask({
+      mode: "image-video",
+      modeLabel: "图片转视频",
+      taskName,
+      inputPath: inputs,
+      settings: {
+        sourceCount,
+        mode: imageMode,
+        outputCount: totalOut,
+        imageCount,
+        canvas,
+        fillMode,
+        motionMode,
+        exportQuality,
+      },
+    });
+    await trackClientEvent("image_video_start", {
+      module: "image_video",
+      meta: { mode: imageMode, sourceCount, outputCount: totalOut, canvas, fillMode, motionMode, exportQuality },
+    });
+    const exportBatch = await createExportBatch({ outputDir, modeLabel: "图片转视频", taskName });
+    const workRoot = path.join(RUN, "image-video-work", randomUUID());
+    const assetRoot = path.join(exportBatch.batchDir, "_assets");
+    await mkdir(workRoot, { recursive: true });
+    await mkdir(assetRoot, { recursive: true });
+    send({ type: "start", total: totalOut, images: sourceCount });
+    const imageIndex = await buildSmartImageIndex(images, {
+      cacheDir: path.join(CACHE, "smart-image-index"),
+      onEvent: send,
+    });
+    send({
+      type: "image_index",
+      available: Boolean(imageIndex.onnx?.available),
+      reused: Boolean(imageIndex.reused),
+      indexedImages: imageIndex.images.length,
+      reason: imageIndex.onnx?.reason || "",
+    });
+    const arkSettings = volcengineSettings().ark;
+    const outputs = [];
+    const manifest = {
+      version: 1,
+      mode: "image-video",
+      modeLabel: "图片转视频",
+      createdAt: new Date().toISOString(),
+      source: {
+        inputDir: inputs,
+        imageCount: images.length,
+        smartIndex: {
+          path: imageIndex.path,
+          reused: imageIndex.reused,
+          indexedImages: imageIndex.images.length,
+          onnx: imageIndex.onnx ?? null,
+        },
+      },
+      settings: { canvas, fillMode, fps, mode: imageMode, imageCount, sceneDurationSec, motionMode, transition, subtitleEnabled, voiceEnabled, bgmEnabled, exportQuality },
+      groups: [],
+    };
+    const items = imageMode === "copy" ? validCopyItems : validAudioItems;
+    let outputBase = 0;
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      const item = items[itemIndex];
+      const itemText = imageMode === "copy" ? item.text : item.text || item.name || path.basename(item.path);
+      const scenes = splitCopyScenes(itemText);
+      const promptText = scenes.join(" ");
+      const groupName = `${imageMode === "copy" ? "文案" : "音频"}${pad2(itemIndex + 1)}_${safeFilename(itemText || item.name, imageMode === "copy" ? "文案" : "音频", 18)}`;
+      const groupDir = path.join(exportBatch.batchDir, groupName);
+      const assetDir = path.join(assetRoot, groupName);
+      await mkdir(groupDir, { recursive: true });
+      await mkdir(assetDir, { recursive: true });
+      let audioPath = imageMode === "audio" ? item.path : "";
+      let duration = imageMode === "audio" ? await audioDuration(item.path) : estimateCopyDuration(item.text);
+      let tts = null;
+      if (imageMode === "copy" && voiceEnabled !== false) {
+        const selectedVoice = {
+          ...defaultTtsVoice(),
+          ...(voice ?? {}),
+        };
+        const ttsSettings = volcengineSettings().tts;
+        const ttsFile = path.join(assetDir, "voice.mp3");
+        send({ type: "log", msg: `正在生成第 ${itemIndex + 1} 条配音` });
+        tts = await synthesizeSpeech({
+          text: item.text,
+          speaker: selectedVoice.speaker,
+          resourceId: selectedVoice.resourceId || ttsSettings.resourceId,
+          apiKey: ttsSettings.apiKey,
+          format: "mp3",
+          sampleRate: 24000,
+          speechRate: copyVoiceSpeechRate,
+          loudnessRate: copyVoiceLoudnessRate,
+          outputPath: ttsFile,
+        });
+        audioPath = tts.path;
+        duration = await probeDuration(tts.path);
+      }
+      if (!duration) duration = Math.max(4, scenes.length * normalizeSceneDuration(sceneDurationSec));
+      const match = await rankImagesForPrompt(images, promptText, {
+        index: imageIndex,
+        llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
+        rerankTopK: smartRerankTopK,
+        onEvent: send,
+      });
+      const perVideoImages = Math.max(
+        scenes.length,
+        Math.floor(Number(imageCount) || Math.ceil(duration / normalizeSceneDuration(sceneDurationSec))),
+        1,
+      );
+      const pickedImages = pickRankedImages(match.images, perVideoImages, allowImageReuse);
+      send({
+        type: "image_match",
+        index: itemIndex + 1,
+        matches: match.matches,
+      });
+      const itemOutputs = [];
+      for (let variant = 0; variant < variantsPerItem; variant++) {
+        const orderedImages = pickedImages.slice(variant).concat(pickedImages.slice(0, variant));
+        const outputName = `成片_${pad2(variant + 1)}.mp4`;
+        const output = path.join(groupDir, outputName);
+        const finalSubtitle = subtitleEnabled && itemText
+          ? copySubtitlePayload(itemText, duration, subtitleStyle)
+          : null;
+        await runImageVideo({
+          images: orderedImages,
+          output,
+          workDir: path.join(workRoot, `${itemIndex}_${variant}`),
+          w,
+          h,
+          fps,
+          durationSec: duration,
+          sceneDurationSec: normalizeSceneDuration(sceneDurationSec),
+          fillMode,
+          motionMode,
+          transition,
+          finalSubtitle,
+          audioPath,
+          bgmEnabled,
+          bgmPath,
+          bgmVolume,
+          voiceVolume,
+          exportQuality,
+          onEvent: (event) => send({ ...event, output: outputBase + variant + 1, total: totalOut }),
+        });
+        itemOutputs.push(output);
+        outputs.push(output);
+        send({ type: "output_done", output: outputBase + variant + 1, total: totalOut, path: output });
+      }
+      manifest.groups.push({
+        type: imageMode,
+        index: itemIndex + 1,
+        name: groupName,
+        dir: groupDir,
+        text: itemText,
+        audio: audioPath ? { path: audioPath, durationSec: duration, tts: Boolean(tts) } : null,
+        smartMatch: match,
+        images: pickedImages.map((image) => ({ path: image, name: path.basename(image), url: runFileUrl(image) })),
+        outputs: itemOutputs.map((file) => ({ file: path.basename(file), path: file, url: runFileUrl(file) })),
+      });
+      outputBase += variantsPerItem;
+    }
+    const manifestPath = path.join(exportBatch.batchDir, "manifest.json");
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+    finishGenerationTask(taskId, {
+      outputDir: exportBatch.batchDir,
+      manifestPath,
+      outputCount: outputs.length,
+    });
+    await trackClientEvent("image_video_success", {
+      module: "image_video",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { mode: imageMode, sourceCount, outputCount: outputs.length, canvas, fillMode, motionMode, exportQuality },
+    });
+    send({ type: "done", outputs: outputs.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
+  } catch (e) {
+    finishGenerationTask(taskId, { status: "failed", error: safeErrorMessage(e, [volcengineSettings().ark.apiKey, volcengineSettings().tts.apiKey]) });
+    await trackClientEvent("image_video_fail", {
+      module: "image_video",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "image_video_error",
+      meta: { sourceCount },
+    });
+    send({ type: "error", msg: safeErrorMessage(e, [volcengineSettings().ark.apiKey, volcengineSettings().tts.apiKey]) });
+  }
+  res.end();
+}
+
 async function apiMix(req, res) {
   const {
     inputs,
@@ -886,7 +1551,11 @@ async function apiMix(req, res) {
   res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
   const send = (o) => res.write(JSON.stringify(o) + "\n");
   let taskId = "";
+  const opStartedAt = Date.now();
+  let telemetryMode = "unknown";
+  let telemetrySourceCount = 0;
   try {
+    await requireActiveLicense();
     await mkdir(RUN, { recursive: true });
     await rm(path.join(RUN, "work"), { recursive: true, force: true });
     await rm(path.join(RUN, "tts"), { recursive: true, force: true });
@@ -940,6 +1609,8 @@ async function apiMix(req, res) {
     }
     const mode = smartMix ? "smart" : copyMode ? "copy" : audioMode ? "audio" : "custom";
     const modeLabel = smartMix ? "AI智能混剪" : copyMode ? "文案模式" : audioMode ? "音频模式" : "自定义模式";
+    telemetryMode = mode;
+    telemetrySourceCount = sourceClips.length;
     const taskName = inputs && existsSync(inputs) ? path.basename(inputs) : "测试素材";
     taskId = createGenerationTask({
       mode,
@@ -956,6 +1627,17 @@ async function apiMix(req, res) {
         smartMaterialMode: smartMix ? smartMaterialMode : null,
         exportQuality,
         smartRerank: smartMix ? Boolean(smartRerank) : false,
+      },
+    });
+    await trackClientEvent("mix_start", {
+      module: smartMix ? "smart_mix" : "video_mix",
+      meta: {
+        mode,
+        sourceCount: sourceClips.length,
+        outputCount: totalOut,
+        canvas,
+        exportQuality,
+        smartRerank: Boolean(smartMix && smartRerank),
       },
     });
     const shouldSegmentSmartMaterials = smartMix && smartMaterialMode === "raw";
@@ -1212,6 +1894,12 @@ async function apiMix(req, res) {
         manifestPath,
         outputCount: outputs.length,
       });
+      await trackClientEvent("mix_success", {
+        module: smartMix ? "smart_mix" : "video_mix",
+        success: true,
+        durationMs: Date.now() - opStartedAt,
+        meta: { mode, sourceCount: telemetrySourceCount, outputCount: outputs.length, canvas, exportQuality },
+      });
       send({ type: "done", outputs: outputs.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
       res.end();
       return;
@@ -1317,6 +2005,12 @@ async function apiMix(req, res) {
         manifestPath,
         outputCount: outputs.length,
       });
+      await trackClientEvent("mix_success", {
+        module: smartMix ? "smart_mix" : "video_mix",
+        success: true,
+        durationMs: Date.now() - opStartedAt,
+        meta: { mode, sourceCount: telemetrySourceCount, outputCount: outputs.length, canvas, exportQuality },
+      });
       send({ type: "done", outputs: outputs.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
       res.end();
       return;
@@ -1371,9 +2065,22 @@ async function apiMix(req, res) {
       manifestPath,
       outputCount: results.length,
     });
+    await trackClientEvent("mix_success", {
+      module: smartMix ? "smart_mix" : "video_mix",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { mode, sourceCount: telemetrySourceCount, outputCount: results.length, canvas, exportQuality },
+    });
     send({ type: "done", outputs: results.map(runFileUrl), exportDir: exportBatch.batchDir, manifest: manifestPath });
   } catch (e) {
     finishGenerationTask(taskId, { status: "failed", error: e.message });
+    await trackClientEvent("mix_fail", {
+      module: smartMix ? "smart_mix" : "video_mix",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "mix_error",
+      meta: { mode: telemetryMode, sourceCount: telemetrySourceCount },
+    });
     send({ type: "error", msg: e.message });
   }
   res.end();
@@ -1413,14 +2120,28 @@ async function inspectMaterialOrientation(clips) {
 
 async function apiMaterials(req, res) {
   const { inputs } = await readBody(req);
+  const opStartedAt = Date.now();
   res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
   try {
+    await requireActiveLicense();
     if (!inputs || !existsSync(inputs)) {
       throw new Error("素材路径不存在");
     }
     const clips = await collectClips(inputs);
     if (!clips.length) throw new Error("该素材路径没有视频素材");
     const { orientation, metaByPath } = await inspectMaterialOrientation(clips);
+    await trackClientEvent("material_import_success", {
+      module: "materials",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: {
+        count: clips.length,
+        resolvedOrientation: orientation.resolved,
+        portrait: orientation.portrait,
+        landscape: orientation.landscape,
+        square: orientation.square,
+      },
+    });
     res.end(JSON.stringify({
       valid: true,
       path: inputs,
@@ -1437,7 +2158,56 @@ async function apiMaterials(req, res) {
       })),
     }));
   } catch (e) {
+    await trackClientEvent("material_import_fail", {
+      module: "materials",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "material_import_error",
+    });
     res.end(JSON.stringify({ valid: false, msg: e.message }));
+  }
+}
+
+async function inspectImageMaterials(inputs) {
+  if (!inputs || !existsSync(inputs)) throw new Error("图片素材路径不存在");
+  const images = await collectImages(inputs);
+  if (!images.length) throw new Error("该路径没有图片素材");
+  const items = [];
+  let next = 0;
+  const workerCount = Math.min(8, images.length);
+  async function worker() {
+    while (next < images.length) {
+      const image = images[next++];
+      const size = await probeVideoSize(image);
+      items.push({
+        name: path.basename(image),
+        path: image,
+        url: runFileUrl(image),
+        width: size?.width,
+        height: size?.height,
+        orientation: classifyVideoSize(size),
+      });
+    }
+  }
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  items.sort((a, b) => a.path.localeCompare(b.path, "zh-Hans-CN"));
+  return {
+    valid: true,
+    path: inputs,
+    name: path.basename(inputs),
+    count: items.length,
+    images: items,
+  };
+}
+
+async function apiImageMaterials(req, res) {
+  const { inputs } = await readBody(req);
+  res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+  try {
+    const payload = await inspectImageMaterials(inputs);
+    res.end(JSON.stringify(payload));
+  } catch (e) {
+    res.end(JSON.stringify({ valid: false, msg: e.message, path: inputs || "", name: "", count: 0, images: [] }));
   }
 }
 
@@ -1460,10 +2230,14 @@ async function apiSegments(req, res) {
   res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
   const send = (o) => res.write(JSON.stringify(o) + "\n");
   let taskId = "";
+  const opStartedAt = Date.now();
+  let sourceCount = 0;
   try {
+    await requireActiveLicense();
     if (!inputs || !existsSync(inputs)) throw new Error("素材路径不存在");
     const clips = await collectClips(inputs);
     if (!clips.length) throw new Error("该素材路径没有视频素材");
+    sourceCount = clips.length;
     taskId = createGenerationTask({
       mode: "segment",
       modeLabel: "智能分割",
@@ -1477,6 +2251,10 @@ async function apiSegments(req, res) {
         maxSegmentSec,
         segmentMode,
       },
+    });
+    await trackClientEvent("segment_start", {
+      module: "smart_segment",
+      meta: { sourceCount, segmentMode, targetSegmentSec, maxSegmentSec, speechProtection: Boolean(speechProtection) },
     });
     const exportBatch = await createExportBatch({
       outputDir,
@@ -1505,6 +2283,12 @@ async function apiSegments(req, res) {
       manifestPath: library.path,
       outputCount: library.segments.length,
     });
+    await trackClientEvent("segment_success", {
+      module: "smart_segment",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { sourceCount, outputCount: library.segments.length, segmentMode },
+    });
     send({
       type: "done",
       engine: library.engine,
@@ -1520,6 +2304,13 @@ async function apiSegments(req, res) {
     });
   } catch (e) {
     finishGenerationTask(taskId, { status: "failed", error: e.message });
+    await trackClientEvent("segment_fail", {
+      module: "smart_segment",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "segment_error",
+      meta: { sourceCount, segmentMode },
+    });
     send({ type: "error", msg: e.message });
   }
   res.end();
@@ -1542,10 +2333,14 @@ async function apiHighlightClips(req, res) {
   res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
   const send = (o) => res.write(JSON.stringify(o) + "\n");
   let taskId = "";
+  const opStartedAt = Date.now();
+  let sourceCount = 0;
   try {
+    await requireActiveLicense();
     if (!inputs || !existsSync(inputs)) throw new Error("视频路径不存在");
     const clips = await collectClips(inputs);
     if (!clips.length) throw new Error("该路径没有可处理的视频");
+    sourceCount = clips.length;
     const settings = volcengineSettings();
     if (!settings.ark.apiKey) throw new Error("未配置火山 ARK API Key，请先在系统设置中填写");
     taskId = createGenerationTask({
@@ -1568,6 +2363,10 @@ async function apiHighlightClips(req, res) {
       outputDir,
       modeLabel: "高光切片",
       taskName: path.basename(inputs),
+    });
+    await trackClientEvent("highlight_start", {
+      module: "highlight_clip",
+      meta: { sourceCount, minDurationSec, maxDurationSec, minScore, maxClips, maxCollections, enableAsr: Boolean(enableAsr) },
     });
     const result = await runHighlightClips(clips, {
       outputDir: exportBatch.batchDir,
@@ -1601,6 +2400,12 @@ async function apiHighlightClips(req, res) {
       manifestPath: result.manifestPath,
       outputCount: result.clips.length,
     });
+    await trackClientEvent("highlight_success", {
+      module: "highlight_clip",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { sourceCount, clipCount: result.clips.length, collectionCount: result.collections.length, exportQuality },
+    });
     send({
       type: "done",
       exportDir: exportBatch.batchDir,
@@ -1616,6 +2421,13 @@ async function apiHighlightClips(req, res) {
     });
   } catch (e) {
     finishGenerationTask(taskId, { status: "failed", error: safeErrorMessage(e, [volcengineSettings().ark.apiKey]) });
+    await trackClientEvent("highlight_fail", {
+      module: "highlight_clip",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "highlight_error",
+      meta: { sourceCount },
+    });
     send({ type: "error", msg: safeErrorMessage(e, [volcengineSettings().ark.apiKey]) });
   }
   res.end();
@@ -1701,6 +2513,98 @@ async function apiGenerationTasks(req, res) {
   }));
 }
 
+async function apiAuthStatus(req, res) {
+  const status = await refreshRemoteAuthStatus();
+  res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+  res.end(JSON.stringify(status));
+}
+
+async function apiAuthRegister(req, res) {
+  const opStartedAt = Date.now();
+  try {
+    const { account, password, name } = await readBody(req);
+    const status = await registerRemoteUser({ account, password, name });
+    await trackClientEvent("auth_register_success", {
+      module: "auth",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { active: Boolean(status.active), reason: status.reason },
+    });
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ status }));
+  } catch (e) {
+    await trackClientEvent("auth_register_fail", {
+      module: "auth",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "auth_register_error",
+    });
+    res.writeHead(errorStatusCode(e, 400), { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ ok: false, message: e.message }));
+  }
+}
+
+async function apiAuthLogin(req, res) {
+  const opStartedAt = Date.now();
+  try {
+    const { account, password } = await readBody(req);
+    const status = await loginRemoteUser({ account, password });
+    await trackClientEvent("auth_login_success", {
+      module: "auth",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { active: Boolean(status.active), reason: status.reason },
+    });
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ status }));
+  } catch (e) {
+    await trackClientEvent("auth_login_fail", {
+      module: "auth",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "auth_login_error",
+    });
+    res.writeHead(errorStatusCode(e, 400), { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ ok: false, message: e.message }));
+  }
+}
+
+async function apiAuthActivate(req, res) {
+  const opStartedAt = Date.now();
+  try {
+    const { code } = await readBody(req);
+    const status = await activateRemoteLicense(code);
+    await trackClientEvent("auth_activate_success", {
+      module: "auth",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { active: Boolean(status.active), reason: status.reason, licenseType: status.license?.type || "" },
+    });
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify(status));
+  } catch (e) {
+    await trackClientEvent("auth_activate_fail", {
+      module: "auth",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "auth_activate_error",
+    });
+    res.writeHead(errorStatusCode(e, 400), { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ ok: false, message: e.message }));
+  }
+}
+
+async function apiAuthLogout(req, res) {
+  try {
+    const status = clearAuthSession();
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify(status));
+  } catch (e) {
+    res.writeHead(errorStatusCode(e, 400), { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ ok: false, message: e.message }));
+  }
+}
+
 async function apiExportRoots(req, res) {
   try {
     const { path: inputPath, remove = false } = await readBody(req);
@@ -1768,6 +2672,7 @@ async function materialLibraryPayload() {
       count: rootItems.length,
       videoCount: rootItems.filter((item) => item.kind === "video").length,
       audioCount: rootItems.filter((item) => item.kind === "audio").length,
+      imageCount: rootItems.filter((item) => item.kind === "image").length,
       durationSec: rootItems.reduce((sum, item) => sum + (Number(item.durationSec) || 0), 0),
       lastScannedAt: row.last_scanned_at ?? "",
       items: rootItems,
@@ -1783,6 +2688,7 @@ async function materialLibraryPayload() {
       items: items.length,
       videos: items.filter((item) => item.kind === "video").length,
       audios: items.filter((item) => item.kind === "audio").length,
+      images: items.filter((item) => item.kind === "image").length,
       durationSec: items.reduce((sum, item) => sum + (Number(item.durationSec) || 0), 0),
     },
   };
@@ -1813,20 +2719,36 @@ async function apiMaterialLibrary(req, res) {
 }
 
 async function apiRewriteCopy(req, res) {
+  const opStartedAt = Date.now();
   try {
+    await requireActiveLicense();
     const { text } = await readBody(req);
     const settings = volcengineSettings();
     const rewritten = await rewriteCopy(text, { apiKey: settings.ark.apiKey, model: settings.ark.model });
+    await trackClientEvent("rewrite_success", {
+      module: "copywriting",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { inputLength: String(text || "").length, outputLength: String(rewritten || "").length },
+    });
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
     res.end(JSON.stringify({ text: rewritten }));
   } catch (e) {
-    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    await trackClientEvent("rewrite_fail", {
+      module: "copywriting",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "rewrite_error",
+    });
+    res.writeHead(errorStatusCode(e), { "content-type": "text/plain; charset=utf-8" });
     res.end(e.message);
   }
 }
 
 async function apiTts(req, res) {
+  const opStartedAt = Date.now();
   try {
+    await requireActiveLicense();
     const { text, speaker, resourceId, format = "mp3", sampleRate = 24000, speechRate = 0, loudnessRate = 0 } = await readBody(req);
     const settings = volcengineSettings();
     const requestedFormat = String(format || "mp3").toLowerCase();
@@ -1843,13 +2765,25 @@ async function apiTts(req, res) {
       loudnessRate,
       outputPath: file,
     });
+    await trackClientEvent("tts_success", {
+      module: "tts",
+      success: true,
+      durationMs: Date.now() - opStartedAt,
+      meta: { textLength: String(text || "").length, format: ext, sampleRate, speechRate, loudnessRate, bytes: result.bytes || 0 },
+    });
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
     res.end(JSON.stringify({
       ...result,
       url: `/api/media?path=${encodeURIComponent(result.path)}`,
     }));
   } catch (e) {
-    res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+    await trackClientEvent("tts_fail", {
+      module: "tts",
+      success: false,
+      durationMs: Date.now() - opStartedAt,
+      errorCode: e.statusCode ? `http_${e.statusCode}` : "tts_error",
+    });
+    res.writeHead(errorStatusCode(e), { "content-type": "text/plain; charset=utf-8" });
     res.end(e.message);
   }
 }
@@ -1944,24 +2878,46 @@ http
   .createServer(async (req, res) => {
     try {
       if ((req.method === "GET" || req.method === "HEAD") && req.url.startsWith("/api/media")) return await apiMedia(req, res);
+      if (req.method === "GET" && req.url === "/api/auth/status") return await apiAuthStatus(req, res);
+      if (req.method === "POST" && req.url === "/api/auth/register") return await apiAuthRegister(req, res);
+      if (req.method === "POST" && req.url === "/api/auth/login") return await apiAuthLogin(req, res);
+      if (req.method === "POST" && req.url === "/api/auth/activate") return await apiAuthActivate(req, res);
+      if (req.method === "POST" && req.url === "/api/auth/logout") return await apiAuthLogout(req, res);
       if (req.method === "GET" && req.url.startsWith("/api/exports")) return await apiExports(req, res);
       if (req.method === "GET" && req.url.startsWith("/api/tasks")) return await apiGenerationTasks(req, res);
       if (req.method === "POST" && req.url === "/api/export-roots") return await apiExportRoots(req, res);
       if (req.method === "GET" && req.url.startsWith("/api/material-library")) return await apiMaterialLibrary(req, res);
       if (req.method === "POST" && req.url === "/api/material-library") return await apiMaterialLibrary(req, res);
       if (req.method === "POST" && req.url === "/api/materials") return await apiMaterials(req, res);
+      if (req.method === "POST" && req.url === "/api/image-materials") return await apiImageMaterials(req, res);
       if (req.method === "POST" && req.url === "/api/segments") return await apiSegments(req, res);
       if (req.method === "POST" && req.url === "/api/highlight-clips") return await apiHighlightClips(req, res);
+      if (req.method === "POST" && req.url === "/api/image-video") return await apiImageVideo(req, res);
       if (req.method === "POST" && req.url === "/api/mix") return await apiMix(req, res);
       if (req.method === "POST" && req.url === "/api/rewrite-copy") return await apiRewriteCopy(req, res);
       if (req.method === "POST" && req.url === "/api/tts") return await apiTts(req, res);
       if (req.method === "GET" && req.url === "/api/settings/volcengine") return await apiVolcengineSettings(req, res);
       if (req.method === "POST" && req.url === "/api/settings/volcengine") return await apiVolcengineSettings(req, res);
       if (req.method === "POST" && req.url === "/api/settings/volcengine/test") return await apiVolcengineSettingsTest(req, res);
+      if (req.url.startsWith("/api/")) {
+        res.writeHead(404, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+        res.end(JSON.stringify({ ok: false, message: `接口不存在：${req.method} ${req.url}` }));
+        return;
+      }
       return await serveStatic(req, res);
     } catch (e) {
       res.writeHead(500);
       res.end(String(e));
     }
   })
-  .listen(PORT, () => console.log(`ECutAuto-Clone 后端 ▶  http://localhost:${PORT}  (dist ${existsSync(DIST) ? "已构建" : "未构建"})`));
+  .listen(PORT, () => {
+    console.log(`ECutAuto-Clone 后端 ▶  http://localhost:${PORT}  (dist ${existsSync(DIST) ? "已构建" : "未构建"})`);
+    void trackClientEvent("app_open", {
+      module: "app",
+      meta: {
+        node: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      },
+    });
+  });

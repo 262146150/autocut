@@ -3,24 +3,28 @@ import { listMaterialLibrary, type MaterialLibraryCategory, type MaterialLibrary
 
 type PickerCategory = "all" | MaterialLibraryCategory;
 type PickerOrientation = "all" | "portrait" | "landscape";
+type PickerKind = "video" | "image";
 
 const CATEGORY_OPTIONS: Array<{ value: PickerCategory; label: string }> = [
   { value: "all", label: "全部" },
   { value: "raw", label: "原始素材" },
   { value: "segments", label: "分割片段" },
   { value: "reuse", label: "成品复用" },
+  { value: "image", label: "图片素材" },
 ];
 
 export function MaterialSourcePicker({
   open,
   title = "选择素材来源",
   defaultCategory = "all",
+  kind = "video",
   onSelect,
   onClose,
 }: {
   open: boolean;
   title?: string;
   defaultCategory?: PickerCategory;
+  kind?: PickerKind;
   onSelect: (root: MaterialLibraryRoot) => void;
   onClose: () => void;
 }) {
@@ -40,9 +44,11 @@ export function MaterialSourcePicker({
     listMaterialLibrary()
       .then((library) => {
         if (cancelled) return;
-        const nextRoots = library.roots.filter((root) => root.exists && root.videoCount > 0);
+        const nextRoots = library.roots.filter((root) => root.exists && (kind === "image" ? (root.imageCount ?? 0) > 0 : root.videoCount > 0));
         setRoots(nextRoots);
-        setStatus(nextRoots.length ? `仅显示包含视频的素材源 · ${nextRoots.length} 个可用` : "素材仓库里还没有可用视频素材源");
+        setStatus(nextRoots.length
+          ? `仅显示包含${kind === "image" ? "图片" : "视频"}的素材源 · ${nextRoots.length} 个可用`
+          : `素材仓库里还没有可用${kind === "image" ? "图片" : "视频"}素材源`);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -52,7 +58,7 @@ export function MaterialSourcePicker({
     return () => {
       cancelled = true;
     };
-  }, [defaultCategory, open]);
+  }, [defaultCategory, kind, open]);
 
   if (!open) return null;
   const rootOrientation = (root: MaterialLibraryRoot): "portrait" | "landscape" | "unknown" => {
@@ -69,7 +75,7 @@ export function MaterialSourcePicker({
     if (q && !`${root.name} ${root.path}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  const totalVideos = visibleRoots.reduce((sum, root) => sum + root.videoCount, 0);
+  const totalItems = visibleRoots.reduce((sum, root) => sum + (kind === "image" ? (root.imageCount ?? 0) : root.videoCount), 0);
 
   return (
     <div className="copy-modal-backdrop" onMouseDown={onClose}>
@@ -80,7 +86,7 @@ export function MaterialSourcePicker({
             <span>{status}</span>
           </div>
           <div className="material-picker-h-side">
-            <b>{totalVideos} 个视频</b>
+            <b>{totalItems} 个{kind === "image" ? "图片" : "视频"}</b>
             <button className="icon-btn" type="button" onClick={onClose}>×</button>
           </div>
         </div>
@@ -105,11 +111,11 @@ export function MaterialSourcePicker({
               <div className="material-picker-row-main">
                 <span className="material-picker-chip">{root.categoryLabel}</span>
                 <b>{root.name}</b>
-                <span className="material-picker-meta">{root.videoCount} 个视频 · {root.audioCount} 个音频 · {Math.round(root.durationSec || 0)} 秒</span>
+                <span className="material-picker-meta">{root.videoCount} 个视频 · {root.imageCount ?? 0} 张图片 · {root.audioCount} 个音频 · {Math.round(root.durationSec || 0)} 秒</span>
               </div>
               <em>{root.path}</em>
             </button>
-          )) : <div className="task-empty">{roots.length ? "没有符合筛选的素材源" : "请先在素材仓库添加包含视频的素材源"}</div>}
+          )) : <div className="task-empty">{roots.length ? "没有符合筛选的素材源" : `请先在素材仓库添加包含${kind === "image" ? "图片" : "视频"}的素材源`}</div>}
         </div>
       </div>
     </div>

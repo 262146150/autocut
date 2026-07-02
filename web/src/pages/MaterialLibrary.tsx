@@ -17,6 +17,7 @@ const CATEGORY_OPTIONS: Array<{ value: "all" | MaterialLibraryCategory; label: s
   { value: "segments", label: "分割片段" },
   { value: "reuse", label: "成品复用" },
   { value: "audio", label: "音频素材" },
+  { value: "image", label: "图片素材" },
 ];
 
 function formatBytes(bytes?: number) {
@@ -48,6 +49,7 @@ function orientationLabel(value?: MaterialLibraryOrientation) {
   if (value === "landscape") return "横屏";
   if (value === "square") return "方形";
   if (value === "audio") return "音频";
+  if (!value) return "未知";
   return "未知";
 }
 
@@ -62,7 +64,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
   const [status, setStatus] = useState("正在读取素材仓库…");
   const [addCategory, setAddCategory] = useState<MaterialLibraryCategory>("raw");
   const [categoryFilter, setCategoryFilter] = useState<"all" | MaterialLibraryCategory>("all");
-  const [kindFilter, setKindFilter] = useState<"all" | "video" | "audio">("all");
+  const [kindFilter, setKindFilter] = useState<"all" | "video" | "audio" | "image">("all");
   const [orientationFilter, setOrientationFilter] = useState<"all" | "portrait" | "landscape" | "square">("all");
   const [query, setQuery] = useState("");
 
@@ -193,6 +195,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
             <div className="mini-seg compact">
               <button className={kindFilter === "all" ? "active" : ""} type="button" onClick={() => setKindFilter("all")}>全部</button>
               <button className={kindFilter === "video" ? "active" : ""} type="button" onClick={() => setKindFilter("video")}>视频</button>
+              <button className={kindFilter === "image" ? "active" : ""} type="button" onClick={() => setKindFilter("image")}>图片</button>
               <button className={kindFilter === "audio" ? "active" : ""} type="button" onClick={() => setKindFilter("audio")}>音频</button>
             </div>
             <div className="mini-seg compact">
@@ -215,7 +218,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
                   >
                     <span>{root.name}</span>
                     <em>{root.categoryLabel} · {root.exists ? `${root.count} 个` : "路径失效"}</em>
-                    <b>视频 {root.videoCount} · 音频 {root.audioCount}</b>
+                    <b>视频 {root.videoCount} · 图片 {root.imageCount ?? 0} · 音频 {root.audioCount}</b>
                   </button>
                   <button className="export-remove-root" type="button" onClick={() => removeSource(root)} aria-label="移除素材源">x</button>
                 </div>
@@ -232,7 +235,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
                   title={item.path}
                 >
                   <span>{item.name}</span>
-                  <em>{item.categoryLabel} · {item.kind === "audio" ? "音频" : orientationLabel(item.orientation)} · {formatDuration(item.durationSec)}</em>
+                  <em>{item.categoryLabel} · {item.kind === "audio" ? "音频" : item.kind === "image" ? "图片" : orientationLabel(item.orientation)} · {formatDuration(item.durationSec)}</em>
                   <b>{item.width && item.height ? `${item.width}x${item.height}` : formatBytes(item.size)}</b>
                 </button>
               )) : <div className="task-empty">{selectedRoot ? "没有符合筛选的素材" : "请选择素材源"}</div>}
@@ -245,6 +248,8 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
             <div className="material-player">
               {selectedItem.kind === "audio" ? (
                 <audio key={selectedItem.path} src={selectedItem.url} controls />
+              ) : selectedItem.kind === "image" ? (
+                <img key={selectedItem.path} src={selectedItem.url} alt={selectedItem.name} />
               ) : (
                 <video key={selectedItem.path} src={selectedItem.url} controls />
               )}
@@ -262,7 +267,7 @@ export default function MaterialLibrary({ mod }: { mod: ModuleDef }) {
                 </label>
                 <label>
                   <span>类型</span>
-                  <b>{selectedItem.kind === "audio" ? "音频" : "视频"}</b>
+                  <b>{selectedItem.kind === "audio" ? "音频" : selectedItem.kind === "image" ? "图片" : "视频"}</b>
                 </label>
                 <label>
                   <span>时长</span>

@@ -2,19 +2,21 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ModuleDef } from "../data/modules";
 import { inspectMaterials, mix, rewriteCopy, synthesizeSpeech, type MaterialClip, type MaterialFolderInfo, type MaterialLibraryRoot, type MixParams, type PercentRect, type SmartMatchItem, type SubtitleMode, type SubtitleStyleParams, type TextOverlayParams } from "../api";
-import { Group, Field, Slider } from "../components/controls";
+import { Group, Field } from "../components/controls";
 import { DEFAULT_VIDEO_PROCESSING, VideoProcessingSettings } from "../components/VideoProcessingSettings";
 import { ExportTaskDrawer, type ExportTaskItem } from "../components/ExportTaskDrawer";
 import { MaterialSourcePicker } from "../components/MaterialSourcePicker";
-import voiceRaw from "../../voice.json?raw";
+import {
+  BgmSettings,
+  SUBTITLE_FONTS,
+  SubtitlePreviewOverlay,
+  TextSubtitleStyleSettings,
+  VOICE_SPEAKERS,
+  VoicePickerModal,
+  VoiceSynthesisSettings,
+  type VoiceSpeaker,
+} from "../components/settings";
 
-const PRESET_COLORS = ["random", "#fff", "#f2c14e", "#ef5777", "#3b82f6", "#22c55e", "#111", "#f97316", "#10b981", "#ec4899", "#60a5fa", "#84cc16"];
-const SUBTITLE_FONTS = [
-  { label: "苹方简体", family: "PingFang SC", file: "/System/Library/Fonts/PingFang.ttc" },
-  { label: "冬青黑体", family: "Hiragino Sans GB", file: "/System/Library/Fonts/Hiragino Sans GB.ttc" },
-  { label: "系统黑体", family: "Heiti SC", file: "/System/Library/Fonts/STHeiti Medium.ttc" },
-  { label: "系统宋体", family: "Songti SC", file: "/System/Library/Fonts/Supplemental/Songti.ttc" },
-];
 const BOX_CORNERS = ["nw", "ne", "sw", "se"] as const;
 type TextLayerKind = "subtitle" | "custom";
 type MixMode = "custom" | "copy" | "audio";
@@ -78,43 +80,6 @@ type SegmentLibraryState = {
   segments: number;
   manifest: string;
 };
-type VoiceSpeaker = {
-  ID: string;
-  VoiceType: string;
-  ResourceID?: string;
-  Name: string;
-  Avatar?: string;
-  Gender?: string;
-  Age?: string;
-  Description?: string;
-  TrialURL?: string;
-  Languages?: Array<{ Language?: string; Text?: string; Flag?: string }>;
-  Categories?: Array<{ Categories?: string[] }>;
-};
-
-function loadVoiceSpeakers(): VoiceSpeaker[] {
-  try {
-    const data = JSON.parse(voiceRaw) as { Result?: { Speakers?: VoiceSpeaker[] } };
-    return data.Result?.Speakers ?? [];
-  } catch {
-    return [];
-  }
-}
-
-const VOICE_SPEAKERS = loadVoiceSpeakers();
-
-function voiceCategories(voice: VoiceSpeaker) {
-  return voice.Categories?.flatMap((item) => item.Categories ?? []).filter(Boolean).join(" / ") || "通用场景";
-}
-
-function voiceCategoryList(voice: VoiceSpeaker) {
-  return voice.Categories?.flatMap((item) => item.Categories ?? []).filter(Boolean) ?? [];
-}
-
-function uniqueOptions(values: Array<string | undefined>) {
-  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
-}
-
 function ControlledSlider({
   value,
   onChange,
@@ -200,40 +165,6 @@ function exportQualityLabel(quality: ExportQuality) {
 
 function previewVolume(value: number) {
   return Math.max(0, Math.min(1, value / 100));
-}
-
-function rateLabel(value: number) {
-  return `${(1 + value / 100).toFixed(1)}x`;
-}
-
-function hexColor(value: string) {
-  if (/^#[0-9a-f]{6}$/i.test(value)) return value;
-  if (/^#[0-9a-f]{3}$/i.test(value)) {
-    return "#" + value.slice(1).split("").map((c) => c + c).join("");
-  }
-  return "#ffffff";
-}
-
-function randomPresetColor() {
-  const colors = PRESET_COLORS.filter((color) => color.startsWith("#"));
-  return colors[Math.floor(Math.random() * colors.length)] ?? "#ffffff";
-}
-
-function ColorSwatch({
-  value,
-  onChange,
-  title,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  title: string;
-}) {
-  return (
-    <label className="color-swatch" title={title}>
-      <span className="swatch" style={{ background: value }} />
-      <input type="color" value={hexColor(value)} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  );
 }
 
 function BaseSettings({
@@ -322,28 +253,23 @@ function BaseSettings({
       <Group title="原视频音量">
         <Field label="音量"><ControlledSlider value={videoVolume} max={100} onChange={setVideoVolume} /></Field>
       </Group>
-      <Group title="背景音乐">
-        <Field label="启用">
-          <div className="mini-seg compact" style={{ marginLeft: "auto" }}>
-            <button className={bgmEnabled ? "active" : ""} type="button" onClick={() => setBgmEnabled(true)}>启用</button>
-            <button className={!bgmEnabled ? "active" : ""} type="button" onClick={() => setBgmEnabled(false)}>不启用</button>
-          </div>
-        </Field>
-        <Field>
-          <input
-            className="inp"
-            placeholder="输入或选择本机音频路径"
-            value={bgmPath}
-            onChange={(e) => setBgmPath(e.target.value)}
-          />
-          <button className="icon-btn text-btn" type="button" onClick={chooseBgm}>选择</button>
-          <button className="icon-btn" type="button" disabled={!bgmCanPreview} onClick={onToggleBgmPreview}>
-            {bgmPreviewPlaying ? "❚❚" : "▶"}
-          </button>
-          <button className="icon-btn" type="button" onClick={() => { setBgmPath(""); setBgmEnabled(false); }}>×</button>
-        </Field>
-        <Field label="BGM音量"><ControlledSlider value={bgmVolume} max={100} onChange={setBgmVolume} /></Field>
-      </Group>
+      <BgmSettings
+        enabled={bgmEnabled}
+        path={bgmPath}
+        previewPlaying={bgmPreviewPlaying}
+        canPreview={bgmCanPreview}
+        volume={bgmVolume}
+        volumeControl="slider"
+        onChoose={chooseBgm}
+        onClear={() => {
+          setBgmPath("");
+          setBgmEnabled(false);
+        }}
+        onEnabledChange={setBgmEnabled}
+        onPathChange={setBgmPath}
+        onTogglePreview={onToggleBgmPreview}
+        onVolumeChange={setBgmVolume}
+      />
       {mixMode === "audio" ? (
         <Group title="主音频">
           <Field>
@@ -351,89 +277,38 @@ function BaseSettings({
           </Field>
         </Group>
       ) : mixMode === "copy" ? (
-        <Group title="语音合成">
-          <Field label="启用">
-            <div className="mini-seg compact" style={{ marginLeft: "auto" }}>
-              <button className={copyVoiceEnabled ? "active" : ""} type="button" onClick={() => setCopyVoiceEnabled(true)}>启用</button>
-              <button className={!copyVoiceEnabled ? "active" : ""} type="button" onClick={() => setCopyVoiceEnabled(false)}>不启用</button>
-            </div>
-          </Field>
-          <Field>
-            <span className="muted">{copyVoiceEnabled ? "开始生成时会按每条文案自动合成语音" : "关闭后不合成配音，仅按文案估算时长生成视频"}</span>
-          </Field>
-          <Field>
-            <div className="voice-avatar-small">
-              {selectedVoice?.Avatar ? <img src={selectedVoice.Avatar} alt="" /> : "🙂"}
-            </div>
-            <div>
-              <div style={{ fontWeight: 600, color: "var(--ink)" }}>{selectedVoice?.Name ?? "未选择音色"}</div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                {selectedVoice ? `${selectedVoice.Gender ?? "未知"} ${selectedVoice.Age ?? ""} · ${voiceCategories(selectedVoice)}` : "请选择音色"}
-              </div>
-            </div>
-            <button className="icon-btn" type="button" style={{ marginLeft: "auto" }} disabled={!copyVoiceEnabled} onClick={onOpenVoicePicker}>⇄</button>
-          </Field>
-          <Field label="音量调整">
-            <ControlledSlider
-              value={copyVoiceLoudnessRate}
-              min={-50}
-              max={100}
-              unit=""
-              display={rateLabel(copyVoiceLoudnessRate)}
-              disabled={!copyVoiceEnabled}
-              onChange={setCopyVoiceLoudnessRate}
-            />
-          </Field>
-          <Field label="语速调整">
-            <ControlledSlider
-              value={copyVoiceSpeechRate}
-              min={-50}
-              max={100}
-              unit=""
-              display={rateLabel(copyVoiceSpeechRate)}
-              disabled={!copyVoiceEnabled}
-              onChange={setCopyVoiceSpeechRate}
-            />
-          </Field>
-        </Group>
+        <VoiceSynthesisSettings
+          enabled={copyVoiceEnabled}
+          enabledHint="开始生成时会按每条文案自动合成语音"
+          disabledHint="关闭后不合成配音，仅按文案估算时长生成视频"
+          loudnessRate={copyVoiceLoudnessRate}
+          selectedVoice={selectedVoice}
+          showRateControls
+          speechRate={copyVoiceSpeechRate}
+          voiceCardVariant="compact"
+          onEnabledChange={setCopyVoiceEnabled}
+          onLoudnessRateChange={setCopyVoiceLoudnessRate}
+          onOpenVoicePicker={onOpenVoicePicker}
+          onSpeechRateChange={setCopyVoiceSpeechRate}
+        />
       ) : null}
-      <Group title="文本/字幕样式" badge={activeTextLabel}>
-        <Field label="文字内容">
-          <input className="inp" value={subtitleText} onChange={(e) => setSubtitleText(e.target.value)} />
-        </Field>
-        <Field label="选择字体">
-          <select className="inp" value={subtitleFontIndex} onChange={(e) => setSubtitleFontIndex(Number(e.target.value))}>
-            {SUBTITLE_FONTS.map((font, index) => (
-              <option key={font.file} value={index}>{font.label}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="字号大小"><ControlledSlider value={subtitleFontSize} max={120} unit="" onChange={setSubtitleFontSize} /></Field>
-        <Field label="字体粗细"><Slider value={700} max={900} unit="" /></Field>
-        <Field label="描边粗细"><ControlledSlider value={subtitleOutlineWidth} max={10} unit="" onChange={setSubtitleOutlineWidth} /></Field>
-        <Field label="字体透明"><ControlledSlider value={subtitleOpacity} onChange={setSubtitleOpacity} /></Field>
-        <Field label="字体颜色">
-          <div className="color-row">
-            <ColorSwatch value={subtitleColor} onChange={setSubtitleColor} title="字体颜色" />
-            <label>描边颜色</label>
-            <ColorSwatch value={subtitleOutlineColor} onChange={setSubtitleOutlineColor} title="描边颜色" />
-          </div>
-        </Field>
-        <div className="presets">
-          {PRESET_COLORS.map((c, i) => (
-            <button
-              className="p"
-              key={i}
-              type="button"
-              onClick={() => setSubtitleColor(i === 0 ? randomPresetColor() : c)}
-              style={i === 0 ? {} : { color: c === "#fff" || c === "#111" ? "#888" : c }}
-            >
-              {i === 0 ? "R" : "A"}
-            </button>
-          ))}
-        </div>
-        <Field><button className="icon-btn" style={{ margin: "0 auto" }}>展开全部 ▾</button></Field>
-      </Group>
+      <TextSubtitleStyleSettings
+        activeTextLabel={activeTextLabel}
+        color={subtitleColor}
+        fontIndex={subtitleFontIndex}
+        fontSize={subtitleFontSize}
+        opacity={subtitleOpacity}
+        outlineColor={subtitleOutlineColor}
+        outlineWidth={subtitleOutlineWidth}
+        text={subtitleText}
+        onColorChange={setSubtitleColor}
+        onFontIndexChange={setSubtitleFontIndex}
+        onFontSizeChange={setSubtitleFontSize}
+        onOpacityChange={setSubtitleOpacity}
+        onOutlineColorChange={setSubtitleOutlineColor}
+        onOutlineWidthChange={setSubtitleOutlineWidth}
+        onTextChange={setSubtitleText}
+      />
     </>
   );
 }
@@ -777,118 +652,6 @@ function SmartMatchStatusPanel({
           ))}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function VoicePickerModal({
-  voices,
-  selectedVoiceType,
-  onSelect,
-  onClose,
-}: {
-  voices: VoiceSpeaker[];
-  selectedVoiceType: string;
-  onSelect: (voice: VoiceSpeaker) => void;
-  onClose: () => void;
-}) {
-  const [genderFilter, setGenderFilter] = useState("");
-  const [ageFilter, setAgeFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [playingVoiceType, setPlayingVoiceType] = useState("");
-  const trialAudioRef = useRef<HTMLAudioElement | null>(null);
-  const genders = uniqueOptions(voices.map((voice) => voice.Gender));
-  const ages = uniqueOptions(voices.map((voice) => voice.Age));
-  const categories = uniqueOptions(voices.flatMap((voice) => voiceCategoryList(voice)));
-  const filtered = voices.filter((voice) => {
-    const matchedGender = !genderFilter || voice.Gender === genderFilter;
-    const matchedAge = !ageFilter || voice.Age === ageFilter;
-    const matchedCategory = !categoryFilter || voiceCategoryList(voice).includes(categoryFilter);
-    return matchedGender && matchedAge && matchedCategory;
-  });
-  const playTrial = (voice: VoiceSpeaker) => {
-    const url = voice.TrialURL;
-    if (!url) return;
-    if (trialAudioRef.current) {
-      trialAudioRef.current.pause();
-      trialAudioRef.current.currentTime = 0;
-    }
-    const audio = new Audio(url);
-    trialAudioRef.current = audio;
-    setPlayingVoiceType(voice.VoiceType);
-    audio.onended = () => setPlayingVoiceType((current) => current === voice.VoiceType ? "" : current);
-    audio.onpause = () => setPlayingVoiceType((current) => current === voice.VoiceType ? "" : current);
-    audio.play().catch(() => undefined);
-  };
-  const close = () => {
-    if (trialAudioRef.current) trialAudioRef.current.pause();
-    onClose();
-  };
-  const renderFilterChips = (label: string, values: string[], selected: string, onChange: (value: string) => void) => (
-    <div className="voice-filter-row">
-      <span>{label}</span>
-      <div className="voice-filter-chips">
-        <button className={!selected ? "active" : ""} type="button" onClick={() => onChange("")}>全部</button>
-        {values.map((value) => (
-          <button className={selected === value ? "active" : ""} key={value} type="button" onClick={() => onChange(value)}>
-            {value}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="modal-backdrop" onMouseDown={close}>
-      <div className="voice-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="voice-modal-h">
-          <div>
-            <b>选择音色</b>
-            <span className="muted">共 {voices.length} 个音色</span>
-          </div>
-          <button className="icon-btn" type="button" onClick={close}>×</button>
-        </div>
-        <div className="voice-filters">
-          {renderFilterChips("性别", genders, genderFilter, setGenderFilter)}
-          {renderFilterChips("年龄", ages, ageFilter, setAgeFilter)}
-          {renderFilterChips("分类", categories, categoryFilter, setCategoryFilter)}
-          <span className="muted">匹配 {filtered.length} 个</span>
-        </div>
-        <div className="voice-grid">
-          {filtered.map((voice) => (
-            <div
-              className={`voice-card ${voice.VoiceType === selectedVoiceType ? "active" : ""}`}
-              key={voice.ID || voice.VoiceType}
-              onClick={() => onSelect(voice)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onSelect(voice);
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="voice-card-avatar">
-                {voice.Avatar ? <img src={voice.Avatar} alt="" /> : <span>🙂</span>}
-              </div>
-              <div className="voice-card-main">
-                <div className="voice-card-name">{voice.Name}</div>
-                <div className="muted">{voice.Gender ?? "未知"} {voice.Age ?? ""} · {voiceCategories(voice)}</div>
-                <p>{voice.Description || voice.Languages?.[0]?.Text || "暂无描述"}</p>
-              </div>
-              <button
-                className="mini-chip"
-                type="button"
-                disabled={!voice.TrialURL}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  playTrial(voice);
-                }}
-              >
-                {playingVoiceType === voice.VoiceType ? "播放中" : "试听"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1687,9 +1450,6 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
     </div>
   );
   const folderName = folderInfo?.name ?? (folder ? folder.split("/").pop() || folder : "");
-  const subtitleFont = SUBTITLE_FONTS[subtitleFontIndex] ?? SUBTITLE_FONTS[0];
-  const previewSubtitleFontSize = Math.max(18, Math.round(subtitleFontSize * 0.46));
-  const previewSubtitleOutlineWidth = subtitleOutlineWidth <= 0 ? 0 : Math.max(1, Math.round(subtitleOutlineWidth * 0.65));
   const subtitlePreviewEnabled = (mixMode === "custom" && subtitleMode === "auto")
     || (mixMode === "copy" && copySubtitleEnabled)
     || (mixMode === "audio" && audioSubtitleEnabled);
@@ -1953,31 +1713,27 @@ export default function SmartMix({ mod }: { mod: ModuleDef }) {
                       )) : null}
                     </div>
                   ) : null}
-                  {subtitlePreviewEnabled && subtitleText.trim() ? (
-                    <div
-                      className={`subtitle-preview text-overlay ${activeTextLayer === "subtitle" ? "active" : ""}`}
-                      style={{
-                        left: `${subtitlePos.x}%`,
-                        top: `${subtitlePos.y}%`,
-                        fontFamily: `"${subtitleFont.family}", sans-serif`,
-                        fontSize: previewSubtitleFontSize,
-                        color: subtitleColor,
-                        opacity: subtitleOpacity / 100,
-                        WebkitTextStroke: `${previewSubtitleOutlineWidth}px ${subtitleOutlineColor}`,
-                        textShadow: subtitleOutlineWidth > 0 ? `0 1px 2px ${subtitleOutlineColor}` : "none",
-                      }}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setActiveTextLayer("subtitle");
-                        setTab("base");
-                        setDraggingLayer({ kind: "subtitle" });
-                        updateTextPosition({ kind: "subtitle" }, e.clientX, e.clientY, e.currentTarget.parentElement as HTMLElement);
-                      }}
-                    >
-                      {subtitleText}
-                    </div>
-                  ) : null}
+                  <SubtitlePreviewOverlay
+                    active={activeTextLayer === "subtitle"}
+                    color={subtitleColor}
+                    enabled={subtitlePreviewEnabled}
+                    fontIndex={subtitleFontIndex}
+                    fontSize={subtitleFontSize}
+                    opacity={subtitleOpacity}
+                    outlineColor={subtitleOutlineColor}
+                    outlineWidth={subtitleOutlineWidth}
+                    text={subtitleText}
+                    x={subtitlePos.x}
+                    y={subtitlePos.y}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setActiveTextLayer("subtitle");
+                      setTab("base");
+                      setDraggingLayer({ kind: "subtitle" });
+                      updateTextPosition({ kind: "subtitle" }, e.clientX, e.clientY, e.currentTarget.parentElement as HTMLElement);
+                    }}
+                  />
                   {customTextLayers.map((layer) => {
                     const font = SUBTITLE_FONTS[layer.fontIndex] ?? SUBTITLE_FONTS[0];
                     const previewFontSize = Math.max(18, Math.round(layer.fontSize * 0.46));

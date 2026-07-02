@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
+  getAuthStatus,
   getVolcengineSettings,
   saveVolcengineSettings,
   testVolcengineSettings,
+  type AuthStatus,
   type VolcengineSettings,
 } from "../api";
 
@@ -27,8 +29,16 @@ function TestResult({ result }: { result?: { ok: boolean; message: string } }) {
   return <div className={`settings-test-result ${result.ok ? "ok" : "err"}`}>{result.message}</div>;
 }
 
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("zh-CN");
+}
+
 export default function Settings() {
   const [settings, setSettings] = useState<VolcengineSettings | null>(null);
+  const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [arkApiKey, setArkApiKey] = useState("");
   const [arkModel, setArkModel] = useState(DEFAULT_ARK_MODEL);
   const [ttsApiKey, setTtsApiKey] = useState("");
@@ -52,8 +62,12 @@ export default function Settings() {
   const refresh = async () => {
     setStatus("正在读取设置…");
     try {
-      const next = await getVolcengineSettings();
+      const [next, authStatus] = await Promise.all([
+        getVolcengineSettings(),
+        getAuthStatus().catch(() => null),
+      ]);
       applySettings(next);
+      setAuth(authStatus);
       setStatus("设置已读取");
     } catch (err) {
       setStatus("读取失败：" + (err as Error).message);
@@ -157,12 +171,42 @@ export default function Settings() {
         <div>
           <span>系统设置</span>
           <h1>火山引擎配置</h1>
-          <p>当前 MVP 默认使用本地用户 ID 1。完整 Key 只会写入本地数据库，保存后再用于测试和生成。</p>
+          <p>授权由远程授权服务校验，火山 Key 仍只写入本机数据库，保存后再用于测试和生成。</p>
         </div>
         <button className="import-btn" type="button" onClick={save} disabled={saving || Boolean(testing)}>保存配置</button>
       </div>
 
       <div className="settings-grid">
+        <section className="settings-card">
+          <div className="settings-card-h">
+            <div>
+              <b>账号授权</b>
+              <span>用于控制本机工作台使用权限</span>
+            </div>
+            <span className={`settings-status ${auth?.active ? "ok" : ""}`}>
+              {auth?.active ? `有效 ${auth.license?.daysRemaining ?? 0} 天` : "未激活"}
+            </span>
+          </div>
+          <div className="settings-form">
+            <label>
+              <span>当前账号</span>
+              <input className="inp" value={auth?.user?.account || "-"} readOnly />
+            </label>
+            <label>
+              <span>到期时间</span>
+              <input className="inp" value={formatDate(auth?.license?.expiresAt)} readOnly />
+            </label>
+            <label>
+              <span>授权类型</span>
+              <input className="inp" value={auth?.license?.type === "official" ? "正式" : auth?.license?.type === "trial" ? "试用" : "-"} readOnly />
+            </label>
+            <label>
+              <span>授权服务</span>
+              <input className="inp" value={auth?.serviceUrl || "-"} readOnly />
+            </label>
+          </div>
+        </section>
+
         <section className="settings-card">
           <div className="settings-card-h">
             <div>

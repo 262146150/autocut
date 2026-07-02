@@ -103,6 +103,12 @@ function clipText(clip) {
   return `${dir} ${base}`;
 }
 
+function imageText(image) {
+  const base = path.basename(image, path.extname(image));
+  const dir = path.basename(path.dirname(image));
+  return `${dir} ${base}`;
+}
+
 function candidateCard(item, id) {
   const indexedClip = item.indexedClip ?? {};
   return {
@@ -218,6 +224,22 @@ async function buildClipEntry(clip, fingerprint, dir, index, onnxProvider) {
   };
 }
 
+async function buildImageEntry(image, fingerprint, index, onnxProvider) {
+  const text = imageText(image);
+  const embedding = onnxProvider?.available ? await onnxProvider.embedImages([image]) : null;
+  return {
+    ...fingerprint,
+    name: path.basename(image),
+    dirName: path.basename(path.dirname(image)),
+    text,
+    tokens: tokenize(text),
+    embedding,
+    durationSec: 0,
+    thumbs: [image],
+    index,
+  };
+}
+
 export async function buildSmartMaterialIndex(clips, options = {}) {
   const cacheDir = options.cacheDir || path.join(process.cwd(), "_cache", "smart-index");
   const onnxProvider = await loadSmartOnnxProvider({ root: options.root || process.cwd() });
@@ -269,6 +291,61 @@ export async function buildSmartMaterialIndex(clips, options = {}) {
       modelKey: onnxProvider.modelKey || "",
     },
     clips: entries,
+  };
+  await writeFile(indexPath, JSON.stringify(index, null, 2));
+  return { ...index, reused: false, path: indexPath, onnxProvider };
+}
+
+export async function buildSmartImageIndex(images, options = {}) {
+  const cacheDir = options.cacheDir || path.join(process.cwd(), "_cache", "smart-image-index");
+  const onnxProvider = await loadSmartOnnxProvider({ root: options.root || process.cwd() });
+  if (onnxProvider.available) {
+    options.onEvent?.({ type: "log", msg: `图片匹配：已加载 ${onnxProvider.engine}` });
+  } else {
+    options.onEvent?.({ type: "log", msg: `图片匹配：${onnxProvider.reason}，使用文件名匹配` });
+  }
+  const fingerprints = [];
+  for (const image of images) {
+    try {
+      fingerprints.push(await clipFingerprint(image));
+    } catch {
+      // Deleted or unreadable files are ignored.
+    }
+  }
+  const key = indexKey(fingerprints, onnxProvider.available ? `image-${onnxProvider.modelKey}` : "image-local");
+  const dir = path.join(cacheDir, key);
+  const indexPath = path.join(dir, "index.json");
+  await mkdir(dir, { recursive: true });
+  if (existsSync(indexPath)) {
+    try {
+      const cached = JSON.parse(await readFile(indexPath, "utf8"));
+      if (cached.version === 1 && Array.isArray(cached.images) && cached.images.length === fingerprints.length) {
+        return { ...cached, reused: true, path: indexPath, onnxProvider };
+      }
+    } catch {
+      // Rebuild invalid cache files.
+    }
+  }
+  options.onEvent?.({ type: "log", msg: `图片索引：开始分析 ${fingerprints.length} 张图片…` });
+  const entries = [];
+  for (let i = 0; i < fingerprints.length; i++) {
+    if (i === 0 || (i + 1) % 20 === 0 || i === fingerprints.length - 1) {
+      options.onEvent?.({ type: "log", msg: `图片索引：${i + 1}/${fingerprints.length}` });
+    }
+    entries.push(await buildImageEntry(fingerprints[i].path, fingerprints[i], i, onnxProvider.available ? onnxProvider : null));
+  }
+  const index = {
+    version: 1,
+    engine: onnxProvider.available ? onnxProvider.engine : "local-image-name-v1",
+    createdAt: new Date().toISOString(),
+    key,
+    onnx: {
+      available: onnxProvider.available,
+      reason: onnxProvider.available ? "" : onnxProvider.reason,
+      manifestPath: onnxProvider.manifestPath || "",
+      modelKey: onnxProvider.modelKey || "",
+    },
+    images: entries,
   };
   await writeFile(indexPath, JSON.stringify(index, null, 2));
   return { ...index, reused: false, path: indexPath, onnxProvider };
@@ -341,6 +418,80 @@ export async function rankClipsForPrompt(clips, prompt, options = {}) {
       rerankReason: item.rerankReason || undefined,
       thumbs: item.thumbs,
       durationSec: item.durationSec,
+    })),
+    engine: reranked ? `${baseEngine}+llm-rerank` : baseEngine,
+    reranked,
+    rerankTopK,
+    indexPath: options.index?.path,
+  };
+}
+
+export async function rankImagesForPrompt(images, prompt, options = {}) {
+  const queryTokens = tokenize(prompt);
+  const fallbackOffset = stableHash(prompt) % Math.max(1, images.length);
+  const indexed = new Map((options.index?.images ?? []).map((item) => [item.path, item]));
+  const textEmbedding = options.index?.onnxProvider?.available
+    ? await options.index.onnxProvider.embedText(prompt).catch(() => null)
+    : null;
+  const ranked = images
+    .map((image, index) => {
+      const indexedClip = indexed.get(image);
+      const imageTokens = indexedClip?.tokens?.length ? indexedClip.tokens : tokenize(imageText(image));
+      const lexicalScore = tokenScore(queryTokens, imageTokens);
+      const vectorScore = textEmbedding && indexedClip?.embedding
+        ? Math.max(0, cosineSimilarity(textEmbedding, indexedClip.embedding))
+        : 0;
+      const score = vectorScore > 0 ? vectorScore : lexicalScore;
+      return {
+        clip: image,
+        index,
+        indexedClip,
+        score,
+        reason: vectorScore > 0 ? "onnx-vector" : score > 0 ? (indexedClip ? "image-index" : "filename") : "fallback",
+        lexicalScore,
+        vectorScore,
+        thumbs: indexedClip?.thumbs ?? [image],
+        durationSec: 0,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  let finalRanked = ranked;
+  let reranked = false;
+  let rerankTopK = 0;
+  if (options.llm?.apiKey && ranked.length) {
+    try {
+      options.onEvent?.({ type: "log", msg: "深度匹配：正在重排候选图片" });
+      const result = await rerankWithLlm(ranked, prompt, {
+        apiKey: options.llm.apiKey,
+        model: options.llm.model,
+        topK: options.rerankTopK,
+      });
+      finalRanked = result.ranked;
+      reranked = true;
+      rerankTopK = result.topK;
+      options.onEvent?.({ type: "log", msg: `深度匹配：已重排 ${rerankTopK} 张候选图片` });
+    } catch (error) {
+      options.onEvent?.({ type: "log", msg: `深度匹配失败，已使用本地图片匹配：${error.message}` });
+    }
+  }
+  const ordered = finalRanked.map((item) => item.clip);
+  const hasMatch = finalRanked.some((item) => item.score > 0);
+  const baseEngine = textEmbedding && ranked.some((item) => item.vectorScore > 0)
+    ? options.index?.engine || "onnx-image-v1"
+    : options.index?.engine
+      ? `${options.index.engine}${hasMatch ? "" : "-fallback"}`
+      : hasMatch ? "local-image-name-v1" : "local-image-name-v1-fallback";
+  return {
+    images: hasMatch ? ordered : rotate(images, fallbackOffset),
+    matches: finalRanked.slice(0, Math.min(8, finalRanked.length)).map((item) => ({
+      name: path.basename(item.clip),
+      score: Number(item.score.toFixed(3)),
+      reason: item.reason,
+      lexicalScore: Number(item.lexicalScore.toFixed(3)),
+      vectorScore: Number(item.vectorScore.toFixed(3)),
+      rerankScore: item.rerankScore === undefined || item.rerankScore === null ? undefined : Number(item.rerankScore.toFixed(3)),
+      rerankReason: item.rerankReason || undefined,
+      thumbs: item.thumbs,
     })),
     engine: reranked ? `${baseEngine}+llm-rerank` : baseEngine,
     reranked,

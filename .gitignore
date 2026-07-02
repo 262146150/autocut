@@ -25,6 +25,8 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+admin-dist/
+**/admin-dist/
 *.tsbuildinfo
 
 # Runtime outputs and caches

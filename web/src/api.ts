@@ -107,6 +107,24 @@ export interface MaterialClip {
   orientation?: "portrait" | "landscape" | "square" | "unknown";
 }
 
+export interface ImageMaterialItem {
+  name: string;
+  path: string;
+  url: string;
+  width?: number;
+  height?: number;
+  orientation?: "portrait" | "landscape" | "square" | "unknown";
+}
+
+export interface ImageMaterialInfo {
+  valid: boolean;
+  path: string;
+  name: string;
+  count: number;
+  images: ImageMaterialItem[];
+  msg?: string;
+}
+
 export interface MaterialFolderInfo {
   valid: boolean;
   path: string;
@@ -296,8 +314,37 @@ export interface GenerationTaskData {
   };
 }
 
-export type MaterialLibraryCategory = "raw" | "segments" | "reuse" | "audio";
-export type MaterialLibraryKind = "video" | "audio";
+export interface AuthStatus {
+  registered: boolean;
+  active: boolean;
+  expired: boolean;
+  reason: "unauthenticated" | "inactive" | "expired" | "active" | "cached" | "device_mismatch" | string;
+  user: null | {
+    id: number | null;
+    account: string;
+    name: string;
+  };
+  license: null | {
+    type?: "trial" | "official" | string;
+    active?: boolean;
+    expired?: boolean;
+    deviceMismatch?: boolean;
+    deviceId?: string;
+    boundDeviceId?: string;
+    expiresAt: string;
+    daysRemaining: number;
+  };
+  serviceUrl?: string;
+  lastCheckedAt?: string;
+  warning?: string;
+}
+
+export interface AuthActionResult {
+  status: AuthStatus;
+}
+
+export type MaterialLibraryCategory = "raw" | "segments" | "reuse" | "audio" | "image";
+export type MaterialLibraryKind = "video" | "audio" | "image";
 export type MaterialLibraryOrientation = "portrait" | "landscape" | "square" | "unknown" | "audio";
 
 export interface MaterialLibraryItem {
@@ -328,6 +375,7 @@ export interface MaterialLibraryRoot {
   count: number;
   videoCount: number;
   audioCount: number;
+  imageCount?: number;
   durationSec: number;
   items: MaterialLibraryItem[];
 }
@@ -341,9 +389,62 @@ export interface MaterialLibraryData {
     items: number;
     videos: number;
     audios: number;
+    images?: number;
     durationSec: number;
   };
 }
+
+export interface ImageVideoCopyItem {
+  id: string;
+  text: string;
+}
+
+export interface ImageVideoAudioItem {
+  id: string;
+  path: string;
+  text?: string;
+  name?: string;
+}
+
+export interface ImageVideoParams {
+  inputs: string;
+  canvas: string;
+  fillMode?: "blur" | "black";
+  fps?: number;
+  mode: "copy" | "audio";
+  copyItems?: ImageVideoCopyItem[];
+  audioItems?: ImageVideoAudioItem[];
+  variants?: number;
+  imageCount?: number;
+  sceneDurationSec?: number;
+  allowImageReuse?: boolean;
+  motionMode?: "zoomIn" | "zoomOut" | "drift";
+  transition?: "fade" | "none";
+  subtitleEnabled?: boolean;
+  subtitleStyle?: SubtitleStyleParams | null;
+  voiceEnabled?: boolean;
+  copyVoiceSpeechRate?: number;
+  copyVoiceLoudnessRate?: number;
+  voice?: CopyVoiceParams | null;
+  voiceVolume?: number;
+  bgmEnabled?: boolean;
+  bgmPath?: string;
+  bgmVolume?: number;
+  exportQuality?: "standard" | "high" | "best";
+  smartRerank?: boolean;
+  smartRerankTopK?: number;
+  outputDir?: string;
+}
+
+export type ImageVideoEvent =
+  | { type: "start"; total: number; images: number }
+  | { type: "log"; msg: string }
+  | { type: "image_index"; available: boolean; reused: boolean; indexedImages: number; reason?: string }
+  | { type: "image_match"; index: number; matches: SmartMatchItem[] }
+  | { type: "image_done"; index: number; total: number; output?: number; path: string }
+  | { type: "output_done"; output: number; total: number; path: string }
+  | { type: "error"; msg: string }
+  | { type: "done"; outputs: string[]; exportDir?: string; manifest?: string };
 
 export interface VolcengineSettings {
   userId: number;
@@ -502,7 +603,13 @@ const isTauri = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 async function readJson<T>(resp: Response, emptyMsg: string): Promise<T> {
   const text = await resp.text();
   if (!resp.ok) {
-    throw new Error(text.trim() || `请求失败：HTTP ${resp.status}`);
+    try {
+      const data = JSON.parse(text) as { message?: string; msg?: string; error?: string };
+      throw new Error(data.message || data.msg || data.error || `请求失败：HTTP ${resp.status}`);
+    } catch (err) {
+      if (err instanceof Error && !err.message.startsWith("Unexpected")) throw err;
+      throw new Error(text.trim() || `请求失败：HTTP ${resp.status}`);
+    }
   }
   if (!text.trim()) {
     throw new Error(emptyMsg);
@@ -547,6 +654,22 @@ export async function inspectMaterials(inputs: string): Promise<MaterialFolderIn
   }
   const data = await readJson<MaterialFolderInfo>(resp, "本地后端未返回数据，请确认 `node server.mjs` 正在运行");
   if (!data.valid) throw new Error(data.msg ?? "无法读取素材目录");
+  return data;
+}
+
+export async function inspectImageMaterials(inputs: string): Promise<ImageMaterialInfo> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/image-materials", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ inputs }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  const data = await readJson<ImageMaterialInfo>(resp, "图片素材接口未返回数据");
+  if (!data.valid) throw new Error(data.msg ?? "无法读取图片素材");
   return data;
 }
 
@@ -689,6 +812,40 @@ export async function generateHighlightClips(
   }
 }
 
+export async function generateImageVideo(
+  params: ImageVideoParams,
+  onEvent: (e: ImageVideoEvent) => void,
+): Promise<void> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/image-video", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  if (!resp.ok || !resp.body) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(text.trim() || "图片转视频接口无响应，请确认 `node server.mjs` 正在运行");
+  }
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (line) onEvent(JSON.parse(line) as ImageVideoEvent);
+    }
+  }
+}
+
 export async function rewriteCopy(text: string): Promise<string> {
   let resp: Response;
   try {
@@ -736,6 +893,68 @@ export async function listGenerationTasks(limit = 20): Promise<GenerationTaskDat
     throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
   }
   return readJson<GenerationTaskData>(resp, "任务记录接口未返回数据");
+}
+
+export async function getAuthStatus(): Promise<AuthStatus> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/auth/status");
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<AuthStatus>(resp, "授权状态接口未返回数据");
+}
+
+export async function registerUser(params: { account: string; password: string; name?: string }): Promise<AuthActionResult> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<AuthActionResult>(resp, "注册接口未返回数据");
+}
+
+export async function loginUser(params: { account: string; password: string }): Promise<AuthActionResult> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<AuthActionResult>(resp, "登录接口未返回数据");
+}
+
+export async function activateLicense(code: string): Promise<AuthStatus> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/auth/activate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<AuthStatus>(resp, "激活接口未返回数据");
+}
+
+export async function logoutUser(): Promise<AuthStatus> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  return readJson<AuthStatus>(resp, "退出登录接口未返回数据");
 }
 
 export async function listMaterialLibrary(): Promise<MaterialLibraryData> {
