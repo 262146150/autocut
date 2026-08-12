@@ -1,134 +1,125 @@
-# ECutAuto-Clone
+# AutoCut
 
-ECutAuto（1.3.6，Tauri/Rust 混剪软件）的**逆向分析文档 + 架构复刻脚手架**。
-全部内容由对 `/Applications/ECutAuto.app` 主程序的静态分析（`strings`/`otool`/`nm`）还原。
+AutoCut 是一个本地优先的视频智能处理工作台，面向素材整理、智能切片、文案匹配、批量混剪、图片转视频和字幕处理等生产流程。
 
-## 目录
+项目优先在用户设备上使用 FFmpeg、ONNX Runtime、SQLite 和本地模型完成媒体处理；LLM、TTS 等云端能力为可选配置，平台发布与易变的第三方集成将通过独立适配器或插件接入。
 
+> 当前项目仍处于积极开发阶段，建议先使用 Web 工作台体验和参与开发。
+
+## 核心能力
+
+- 本地素材库：目录导入、SQLite 索引、片段复用和导出记录
+- 智能切片：TransNetV2 场景检测与 sherpa-onnx VAD 边界保护
+- 智能匹配：CLIP ONNX 本地向量匹配，可选 LLM 重排
+- 批量生产：文案或音频驱动的多素材组合、多版本导出
+- 视频处理：FFmpeg 画布适配、裁剪、拼接、字幕、配乐和画面效果
+- 图片转视频：图片序列、运镜、配音、字幕和背景音乐组合
+- 高光切片：ASR、片段评分、标题生成与合集导出
+- 可选云服务：火山方舟 LLM 和火山引擎 TTS 配置
+
+## 技术架构
+
+```text
+React + TypeScript + Vite
+          |
+          v
+本地 Node 服务
+  |-- FFmpeg / FFprobe
+  |-- ONNX Runtime / CLIP / TransNetV2
+  |-- sherpa-onnx VAD
+  |-- SQLite 素材索引
+  `-- 可选 LLM / TTS Provider
+
+Tauri + Rust 交付壳（持续完善中）
 ```
-docs/
-  01-ffmpeg-filters.md   ← 任务1：全套 FFmpeg 滤镜配方（去重/虚化/转场/抠像/音频…）
-  02-api-blueprint.md    ← 任务2：后端 API 蓝图（模块结构/命令面/数据模型/云端集成）
-web/                     ← Web 版工作台：浏览器跑，本地 Node 后端（推荐先用这个开发）
-poc/                     ← CLI 验证：Node + 系统 ffmpeg，混剪/去重核心管线（共享 pipeline.mjs）
-app/                     ← 完整 Tauri 2 脚手架（交付时打包）
-_raw/                    ← 提取的原始字符串证据
+
+媒体、缓存、模型和导出文件默认保留在本机，不会提交到仓库。云端 Provider 只有在用户主动配置后才会启用。
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 22-26
+- pnpm 9 或更高版本
+- FFmpeg 与 FFprobe（需要可从命令行直接调用）
+
+### 启动 Web 工作台
+
+```bash
+git clone https://github.com/262146150/autocut.git
+cd autocut/web
+pnpm install
+pnpm build
+node server.mjs
 ```
 
-## 原软件架构速览（结论）
+打开 <http://localhost:8787>。
 
-| 组件 | 真实身份 |
-|------|---------|
-| 主程序 (Tauri 2.10.3 / Rust) | 调度 + WebView 前端，静态链接 sherpa-onnx |
-| `FFmpeg/macOS/{arm64,x86_64}/` | 视频引擎，CLI 子进程调用 |
-| `models/model.1.onnx` | 本地 ASR 模型（FunASR/Paraformer 系） |
-| `models/model.3.dylib` | **其实是 libonnxruntime 1.25.1**（改名伪装） |
-| 云端 | 火山方舟 LLM（文案/视觉）+ 字节火山 TTS（配音）+ 自有授权服务 |
+开发模式可以在项目根目录运行：
 
-三条流水线：**FFmpeg**（编解码/特效/去重）、**本地 ONNX**（语音转字幕/场景切分）、**云 AI**（文案/配音）。
+```bash
+./start-dev.sh
+```
 
----
+脚本会同时启动本地后端和 Vite 开发服务器，并在终端输出实际访问地址。
 
-## 路线 0：Web 版工作台（Vite + React + TS，推荐先用这个开发）
+### 下载可选本地模型
 
-浏览器里跑完整 UI（首页 + 模块页），本地 Node 后端做实际处理。视觉已按原版还原。
+以下模型不是启动基础界面的必需项，只在对应智能功能中使用：
 
 ```bash
 cd web
-pnpm install
-# 开发（热更新）：两个终端
-node server.mjs      # 终端1：后端 :8787
-pnpm dev             # 终端2：前端 :5173 → 开 http://localhost:5173
-# 或预览构建：
-pnpm build && node server.mjs   # 访问 :8787
+pnpm models:smart     # 中文 CLIP 素材匹配
+pnpm models:transnet  # TransNetV2 场景检测
+pnpm models:vad       # sherpa-onnx VAD
 ```
 
-详见 `web/README.md`。交付时这套 React 前端原样塞进 Tauri，只换 `src/api.ts` 的后端适配（已写好分支）。
+模型文件体积较大，已通过 `.gitignore` 排除。模型来源、许可证与配置说明见 [智能匹配文档](docs/04-smart-match-onnx.md) 和 [ASR 文档](docs/03-asr-setup.md)。
 
----
+## 项目结构
 
-## 路线 A：CLI 跑核心管线（无需 Rust）
-
-```bash
-cd poc
-node mix.mjs                              # 自动造测试素材，出 3 条竖屏成片
-node mix.mjs --canvas 1920x1080 --out 5   # 横屏，出 5 条
-node mix.mjs --inputs /你的/素材目录 --out 10
+```text
+web/           React/TypeScript 工作台与本地 Node 服务
+poc/           可独立运行的 FFmpeg 核心管线验证
+app/           Tauri 2 / Rust 桌面交付壳
+auth-service/  可选授权服务与管理端
+docs/          架构、算法、接口与操作文档
 ```
 
-产出在 `poc/_run/output/`。每条成片的去重参数（翻转/亮度/噪点/变速…）独立随机 →
-**解码后像素 MD5 各不相同**，即指纹各异。这就是"批量出 N 条不重复"的本质：参数随机化，不是 AI。
+详细的 Web 开发说明见 [web/README.md](web/README.md)。
 
-实测（本机已验证）：3 条 1080×1920 成片，视频流 MD5 三者互不相同 ✓
+## 当前状态
 
----
+| 模块 | 状态 |
+| --- | --- |
+| 素材库与导出记录 | 可用 |
+| 智能切片与高光切片 | 可用，部分能力需要本地模型或云配置 |
+| AI 智能混剪 | 可用 |
+| 图片转视频 | 可用，持续完善交互与效果 |
+| 本地 ASR / VAD / CLIP | 已接入，模型需单独下载 |
+| Tauri 桌面打包 | 基础脚手架，持续完善 |
+| 平台发布插件 | 规划中 |
 
-## 路线 B：完整 Tauri 应用
+## 设计原则
 
-前置：Rust（`rustup`）、Node、pnpm。
+1. 本地优先：用户媒体默认不离开设备。
+2. 云端可选：LLM、TTS 等 Provider 可以替换或关闭。
+3. 批量生产：长任务统一进度、日志、取消和导出管理。
+4. 开放实现：不依赖或分发第三方产品的专有二进制、证书和凭据。
+5. 隔离变化：平台发布和云服务放在独立适配层中。
 
-```bash
-# 1) 安装 Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+相关设计背景见 [AivoClaw 对比与整合分析](docs/09-aivoclaw-integration-analysis.md)。
 
-# 2) 放置二进制资源（复用 ECutAuto 的，或自备）
-mkdir -p app/src-tauri/Resources
-cp -R "/Applications/ECutAuto.app/Contents/Resources/Resources/FFmpeg" app/src-tauri/Resources/
+## 参与贡献
 
-# 3) 跑起来
-cd app
-pnpm install
-pnpm tauri dev
-```
+提交 Issue 或 Pull Request 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 中的方式报告，不要在公开 Issue 中附带密钥、Token、个人媒体或数据库文件。
 
-### 后端模块结构（忠实对齐原 `ecutauto_lib`）
+## 合规说明
 
-```
-src-tauri/src/
-├── lib.rs / main.rs        # Tauri 入口，注册命令与插件
-├── commands.rs             # video_mixing_process / _cancel / subtitle_recognize
-├── dedup.rs                # 去重参数随机区间采样
-├── ffmpeg/
-│   ├── executor.rs         # spawn ffmpeg + 进度解析 + 取消
-│   ├── probe.rs            # ffprobe 探测
-│   ├── filters.rs          # 滤镜构造器（= docs/01 配方）
-│   └── mod.rs              # process_segment / concat_segments
-└── providers/
-    └── local_asr.rs        # sherpa-onnx 本地 ASR（--features asr 启用）
-```
+本项目用于合法的视频处理、学习和自有内容生产。请确保你对输入素材、音乐、字体、模型和输出内容拥有必要权利，并遵守所使用平台及云服务的条款。
 
-### 启用本地 ASR（语音转字幕）
+AutoCut 是独立开源实现，与 ECutAuto、AivoClaw 及其厂商不存在隶属或授权关系。仓库不应包含上述产品的专有二进制、模型、签名证书或访问凭据。
 
-```bash
-# 放置模型（与 ECutAuto 同源，从 ModelScope 下载 FunASR/Paraformer onnx）
-#   app/src-tauri/Resources/models/model.1.onnx + tokens.txt
-pnpm tauri dev --features asr
-```
+## 许可证
 
----
-
-## 复刻进度对照
-
-| 模块 | docs | poc | app |
-|------|:----:|:---:|:---:|
-| 背景虚化/画布适配 | ✅ | ✅ 已跑通 | ✅ |
-| 去重/过原创（随机化） | ✅ | ✅ 已跑通 | ✅ |
-| 多段拼接 | ✅ | ✅ 已跑通 | ✅ |
-| 进度/取消 | — | — | ✅ |
-| 转场 / 水印 / 贴纸抠像 / delogo / 运镜 | ✅ 配方齐 | ⬜ | ⬜ 待接 |
-| 本地 ASR 字幕 | ✅ | — | 🔶 骨架 |
-| 剪映草稿导出 | ✅ 字段 | — | ⬜ |
-| 云 LLM 文案 / TTS 配音 | ✅ 端点 | — | ⬜ |
-| 授权系统 | ✅ 结构 | — | ⬜ |
-
-✅完成 🔶骨架 ⬜待实现
-
-下一步把 docs/01 里的转场/水印/抠像/delogo/运镜配方按同样方式补进 `ffmpeg/filters.rs` 即可，
-数据结构照 docs/02 的蓝图定义。
-
----
-
-## 合规
-
-复刻用于学习与自有视频处理工具开发。"去重/过原创"属内容平台查重规避，软件本身合法，
-落地时请遵守目标平台规则与素材版权。
+代码以 [MIT License](LICENSE) 开源。第三方依赖、模型和媒体素材遵循各自许可证。

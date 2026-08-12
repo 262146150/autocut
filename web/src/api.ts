@@ -56,7 +56,7 @@ export interface MixParams {
 
 export type SubtitleMode = "auto" | "off";
 
-export type MotionMode = "zoomIn" | "zoomOut" | "drift";
+export type MotionMode = "none" | "zoomIn" | "zoomOut" | "drift";
 export type WatermarkRemovalMode = "blur" | "pixelate" | "solid";
 export type WatermarkMediaType = "image" | "video";
 
@@ -114,6 +114,7 @@ export interface ImageMaterialItem {
   width?: number;
   height?: number;
   orientation?: "portrait" | "landscape" | "square" | "unknown";
+  annotation?: ImageAnnotation | null;
 }
 
 export interface ImageMaterialInfo {
@@ -223,6 +224,9 @@ export interface SmartMatchItem {
   name: string;
   score: number;
   reason: string;
+  scene?: string;
+  tags?: string[];
+  caption?: string;
   lexicalScore?: number;
   vectorScore?: number;
   rerankScore?: number;
@@ -363,6 +367,22 @@ export interface MaterialLibraryItem {
   orientation?: MaterialLibraryOrientation;
   hasAudio?: boolean;
   valid: boolean;
+  annotation?: ImageAnnotation | null;
+}
+
+export interface ImageAnnotation {
+  path: string;
+  keywords: string;
+  description: string;
+  usageHint: string;
+  updatedAt?: string;
+}
+
+export interface ImageAnnotationsData {
+  ok: boolean;
+  items: ImageAnnotation[];
+  item?: ImageAnnotation;
+  message?: string;
 }
 
 export interface MaterialLibraryRoot {
@@ -418,7 +438,7 @@ export interface ImageVideoParams {
   imageCount?: number;
   sceneDurationSec?: number;
   allowImageReuse?: boolean;
-  motionMode?: "zoomIn" | "zoomOut" | "drift";
+  motionMode?: "none" | "zoomIn" | "zoomOut" | "drift";
   transition?: "fade" | "none";
   subtitleEnabled?: boolean;
   subtitleStyle?: SubtitleStyleParams | null;
@@ -671,6 +691,43 @@ export async function inspectImageMaterials(inputs: string): Promise<ImageMateri
   const data = await readJson<ImageMaterialInfo>(resp, "图片素材接口未返回数据");
   if (!data.valid) throw new Error(data.msg ?? "无法读取图片素材");
   return data;
+}
+
+export async function listImageAnnotations(paths: string[]): Promise<ImageAnnotation[]> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/image-annotations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ paths }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  const data = await readJson<ImageAnnotationsData>(resp, "图片描述接口未返回数据");
+  if (!data.ok) throw new Error(data.message || "无法读取图片描述");
+  return data.items ?? [];
+}
+
+export async function saveImageAnnotation(params: {
+  path: string;
+  keywords?: string;
+  description?: string;
+  usageHint?: string;
+}): Promise<ImageAnnotation> {
+  let resp: Response;
+  try {
+    resp = await fetch("/api/image-annotations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...params, save: true }),
+    });
+  } catch {
+    throw new Error("无法连接本地后端，请先在 web 目录运行 `node server.mjs`");
+  }
+  const data = await readJson<ImageAnnotationsData>(resp, "图片描述保存接口未返回数据");
+  if (!data.ok || !data.item) throw new Error(data.message || "无法保存图片描述");
+  return data.item;
 }
 
 export async function mix(params: MixParams, onEvent: (e: MixEvent) => void): Promise<void> {

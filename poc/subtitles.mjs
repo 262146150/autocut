@@ -10,6 +10,7 @@ const DEFAULT_STYLE = {
   fontSize: 30,
   opacity: 1,
   outlineWidth: 4,
+  maxWidthRatio: 0.82,
   color: "white",
   outlineColor: "black",
 };
@@ -36,7 +37,13 @@ export async function resolveSubtitleForClip(input, options = {}) {
   if (options.subtitleMode === "auto") {
     const sidecar = await loadSidecarSubtitle(input);
     const recognized = sidecar ?? await recognizeClipWithWhisper(input, options);
-    return { ...DEFAULT_STYLE, ...(options.subtitleStyle ?? {}), ...recognized };
+    return {
+      ...DEFAULT_STYLE,
+      ...(options.subtitleStyle ?? {}),
+      ...recognized,
+      stripPunctuation: true,
+      maxWidthRatio: Number(options.subtitleStyle?.maxWidthRatio) || DEFAULT_STYLE.maxWidthRatio,
+    };
   }
   if (options.subtitle?.text || options.subtitle?.frames?.length) {
     return { ...DEFAULT_STYLE, ...options.subtitle };

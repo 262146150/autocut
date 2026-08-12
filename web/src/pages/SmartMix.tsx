@@ -640,13 +640,19 @@ function SmartMatchStatusPanel({
                 <em>匹配完成</em>
               </div>
               <div className="smart-match-items">
-                {group.matches.slice(0, 3).map((match) => (
-                  <div className="smart-match-item" key={`${group.key}-${match.name}`}>
-                    <span title={match.name}>{match.name}</span>
-                    <strong>推荐</strong>
-                    <i>画面相关</i>
-                  </div>
-                ))}
+                {group.matches.slice(0, 3).map((match) => {
+                  const tags = match.tags?.slice(0, 3).join(" · ") || "";
+                  const detail = match.scene
+                    ? `匹配：${match.scene}${tags ? ` · ${tags}` : ""}`
+                    : tags || "画面相关";
+                  return (
+                    <div className="smart-match-item" key={`${group.key}-${match.name}-${match.scene || ""}`}>
+                      <span title={match.name}>{match.name}</span>
+                      <strong>推荐</strong>
+                      <i title={detail}>{detail}</i>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}

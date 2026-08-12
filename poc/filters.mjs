@@ -82,8 +82,17 @@ function charWidthUnit(char) {
   return 0.9;
 }
 
+function subtitleDisplayText(value, stripPunctuation = false) {
+  const raw = String(value ?? "");
+  if (!stripPunctuation) return raw;
+  return raw
+    .replace(/[，。！？、；：“”‘’（）《》【】…,.!?;:"'()[\]{}<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function wrapSubtitleText(value, subtitle) {
-  const text = String(value ?? "").trim();
+  const text = subtitleDisplayText(value, Boolean(subtitle.stripPunctuation)).trim();
   if (!text) return "";
   const fontSize = Math.max(12, Math.min(120, Number(subtitle.fontSize ?? 30)));
   const canvasW = Math.max(320, Number(subtitle.canvasW ?? 1080));
@@ -135,7 +144,7 @@ function subtitleFrames(subtitle) {
     .map((frame) => ({
       start: Math.max(0, Number(frame.start ?? 0)),
       end: Math.max(0, Number(frame.end ?? 0)),
-      text: String(frame.text ?? "").trim(),
+      text: subtitleDisplayText(frame.text, Boolean(subtitle.stripPunctuation)).trim(),
     }))
     .filter((frame) => frame.text && frame.end > frame.start);
 }
@@ -272,7 +281,10 @@ function watermarkOverlayGraph(inLabel, outLabel, processing, inputLabel, canvas
 }
 
 export function subtitleGraph(inLabel, outLabel, subtitle) {
-  const drawSubtitle = { ...subtitle, maxWidthRatio: subtitle.maxWidthRatio ?? 0.86 };
+  const drawSubtitle = {
+    ...subtitle,
+    maxWidthRatio: subtitle.maxWidthRatio ?? (subtitle.stripPunctuation ? 0.82 : 0.86),
+  };
   const frames = subtitleFrames(drawSubtitle);
   if (!frames.length) return drawtextGraph(inLabel, outLabel, drawSubtitle, drawSubtitle.text);
   const chains = [];

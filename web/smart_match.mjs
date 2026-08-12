@@ -12,6 +12,59 @@ const STOP_WORDS = new Set([
   "the", "and", "for", "with", "from", "this", "that", "video", "clip",
 ]);
 
+const SEMANTIC_ALIASES = [
+  ["电饭煲", ["厨房", "做饭", "米饭", "家电", "煮饭", "饭锅"]],
+  ["厨房", ["做饭", "烹饪", "家居", "锅具", "餐饮"]],
+  ["做饭", ["厨房", "烹饪", "食物", "餐饮", "料理"]],
+  ["食物", ["美食", "餐饮", "吃饭", "料理", "厨房"]],
+  ["咖啡", ["饮品", "杯子", "办公室", "休闲", "生活"]],
+  ["办公室", ["办公", "职场", "上班", "电脑", "桌面"]],
+  ["上班", ["职场", "办公室", "通勤", "工作", "白领"]],
+  ["家", ["居家", "客厅", "卧室", "生活", "家庭"]],
+  ["手机", ["数码", "屏幕", "拍摄", "通讯", "科技"]],
+  ["电脑", ["办公", "科技", "桌面", "工作", "数码"]],
+  ["汽车", ["车", "出行", "驾驶", "交通", "路上"]],
+  ["旅行", ["风景", "户外", "出行", "城市", "自然"]],
+  ["运动", ["健身", "跑步", "户外", "健康", "训练"]],
+  ["护肤", ["美妆", "化妆", "面部", "女性", "产品"]],
+  ["口红", ["美妆", "化妆", "女性", "彩妆", "产品"]],
+  ["服装", ["穿搭", "衣服", "时尚", "模特", "搭配"]],
+  ["宝宝", ["母婴", "孩子", "儿童", "家庭", "亲子"]],
+  ["宠物", ["猫", "狗", "动物", "陪伴", "生活"]],
+  ["装修", ["家居", "房间", "空间", "设计", "室内"]],
+  ["优惠", ["促销", "价格", "购买", "活动", "福利"]],
+  ["产品", ["商品", "展示", "细节", "特写", "卖点"]],
+  ["细节", ["特写", "局部", "质感", "产品", "展示"]],
+];
+
+const IMAGE_UNDERSTANDING_LABELS = [
+  "产品特写", "商品展示", "包装盒", "细节质感", "使用步骤", "前后对比", "开箱", "促销优惠",
+  "商品海报", "促销海报", "宣传海报", "广告图", "主图", "详情页",
+  "厨房", "做饭", "电饭煲", "锅具", "餐桌", "食物", "饮品", "咖啡", "烘焙", "水果", "蔬菜",
+  "办公室", "办公桌", "电脑", "手机", "平板电脑", "数码产品", "会议", "职场", "通勤", "学习",
+  "客厅", "卧室", "卫生间", "阳台", "家居", "装修", "收纳", "清洁", "洗衣", "家庭生活",
+  "人物正面", "人物背影", "手部动作", "女性", "男性", "老人", "儿童", "宝宝", "亲子", "情侣",
+  "护肤", "美妆", "口红", "化妆品", "穿搭", "服装", "鞋子", "包包", "首饰", "时尚街拍",
+  "运动", "健身", "跑步", "瑜伽", "户外", "健康", "训练", "游泳", "骑行", "球类运动",
+  "汽车", "驾驶", "道路", "停车场", "车内", "公共交通", "飞机", "高铁", "旅行", "酒店",
+  "城市街道", "商场", "门店", "餐厅", "咖啡店", "超市", "货架", "招牌", "人群", "夜景",
+  "自然风景", "山", "海边", "天空", "花草", "森林", "湖泊", "日出", "日落", "雪景",
+  "宠物", "猫", "狗", "动物", "植物", "农田", "工厂", "仓库", "机器设备", "工具",
+  "红色背景", "蓝色背景", "绿色背景", "白色背景", "黑色背景", "简洁背景", "复杂背景",
+  "海报文字", "截图", "数据图表", "证件资料", "聊天界面", "支付界面", "地图导航",
+  "开心", "温馨", "高级感", "科技感", "专业", "轻松", "忙碌", "治愈", "精致", "真实生活",
+];
+
+const CLIP_UNDERSTANDING_LABELS = Array.from(new Set([
+  ...IMAGE_UNDERSTANDING_LABELS,
+  "产品展示", "产品细节", "商品讲解", "使用产品", "手持展示", "开箱展示", "教程步骤", "结果展示",
+  "人物口播", "直播口播", "人物讲解", "采访对话", "情绪反应", "手部操作", "走路移动", "工作过程",
+  "厨房做饭", "办公室工作", "居家生活", "门店展示", "工厂生产", "仓库打包", "户外行走", "旅行记录",
+  "近景特写", "中景人物", "远景环境", "环境铺垫", "动作过程", "强视觉开头", "细节补充", "真实使用",
+]));
+
+const labelEmbeddingCache = new Map();
+
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -36,7 +89,15 @@ function tokenize(value) {
     ...charNgrams(normalized, 2),
     ...charNgrams(normalized, 3),
   ].filter((token) => token && !STOP_WORDS.has(token));
-  return Array.from(new Set([...wordTokens, ...grams]));
+  const aliases = [];
+  for (const [keyword, related] of SEMANTIC_ALIASES) {
+    if (normalized.includes(keyword) || wordTokens.includes(keyword)) {
+      aliases.push(keyword, ...related);
+    } else if (related.some((word) => normalized.includes(word) || wordTokens.includes(word))) {
+      aliases.push(keyword, ...related);
+    }
+  }
+  return Array.from(new Set([...wordTokens, ...grams, ...aliases].filter((token) => token && !STOP_WORDS.has(token))));
 }
 
 function tokenScore(queryTokens, targetTokens) {
@@ -109,6 +170,116 @@ function imageText(image) {
   return `${dir} ${base}`;
 }
 
+function inferFilenameTags(file) {
+  const text = normalizeText(imageText(file));
+  const rules = [
+    [/海报|poster|banner|主图|详情页/, ["商品海报", "海报文字", "商品展示"]],
+    [/电饭煲|饭锅|煮饭/, ["电饭煲", "厨房", "做饭", "家电"]],
+    [/厨房|烹饪|做饭|料理/, ["厨房", "做饭", "食物"]],
+    [/办公室|办公|职场|上班/, ["办公室", "办公桌", "职场"]],
+    [/电脑|笔记本|pc|mac/, ["电脑", "办公", "数码产品"]],
+    [/手机|iphone|安卓|数码/, ["手机", "数码产品", "科技感"]],
+    [/咖啡|饮品|奶茶|茶/, ["饮品", "咖啡", "生活"]],
+    [/护肤|面霜|精华|口红|美妆|化妆/, ["护肤", "美妆", "产品特写"]],
+    [/衣服|服装|穿搭|鞋|包/, ["穿搭", "服装", "时尚街拍"]],
+    [/汽车|轿车|车辆|驾驶|车内|停车/, ["汽车", "驾驶", "出行"]],
+    [/旅行|旅游|风景|山景|海边|海滩|城市风光|户外/, ["旅行", "自然风景", "户外"]],
+    [/宝宝|儿童|孩子|亲子|母婴/, ["宝宝", "儿童", "亲子"]],
+    [/猫|狗|宠物/, ["宠物", "猫", "狗"]],
+    [/促销|优惠|福利|折扣|价格/, ["促销优惠", "商品展示", "购买"]],
+  ];
+  const tags = [];
+  for (const [pattern, values] of rules) {
+    if (pattern.test(text)) tags.push(...values);
+  }
+  return Array.from(new Set(tags));
+}
+
+function annotationForPath(annotations, file) {
+  if (!annotations) return null;
+  if (annotations instanceof Map) return annotations.get(file) || annotations.get(path.resolve(file)) || null;
+  return annotations[file] || annotations[path.resolve(file)] || null;
+}
+
+function splitAnnotationKeywords(value) {
+  return String(value || "")
+    .split(/[,\n，、;；\s]+/u)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function annotationText(annotation) {
+  if (!annotation) return "";
+  return [
+    annotation.keywords,
+    annotation.description,
+    annotation.usageHint || annotation.usage_hint,
+  ].filter(Boolean).join(" ");
+}
+
+function labelCacheKey(onnxProvider, namespace, labels) {
+  const labelsKey = createHash("sha1").update(labels.join("\n")).digest("hex").slice(0, 10);
+  return `${onnxProvider.modelKey || onnxProvider.engine || "default"}:${namespace}:${labelsKey}`;
+}
+
+async function semanticLabelVectors(onnxProvider, labels, namespace, promptForLabel) {
+  if (!onnxProvider?.available) return [];
+  const key = labelCacheKey(onnxProvider, namespace, labels);
+  if (labelEmbeddingCache.has(key)) return labelEmbeddingCache.get(key);
+  const rows = [];
+  for (const label of labels) {
+    try {
+      const embedding = await onnxProvider.embedText(promptForLabel(label));
+      rows.push({ label, embedding });
+    } catch {
+      // Keep zero-shot tagging optional; CLIP retrieval can still work without label vectors.
+    }
+  }
+  labelEmbeddingCache.set(key, rows);
+  return rows;
+}
+
+async function understandWithLabels(embedding, onnxProvider, labels, namespace, promptForLabel, captionPrefix) {
+  if (!embedding || !onnxProvider?.available) return { tags: [], tagScores: [], caption: "" };
+  const vectors = await semanticLabelVectors(onnxProvider, labels, namespace, promptForLabel);
+  const ranked = vectors
+    .map((item) => ({
+      label: item.label,
+      score: Math.max(0, cosineSimilarity(embedding, item.embedding)),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const top = ranked.slice(0, 8);
+  const confident = top.filter((item, index) => index < 4 || item.score >= Math.max(0.18, top[0]?.score * 0.92));
+  const tags = confident.map((item) => item.label);
+  return {
+    tags,
+    tagScores: top.map((item) => ({ label: item.label, score: Number(item.score.toFixed(3)) })),
+    caption: tags.length ? `${captionPrefix}：${tags.join("、")}` : "",
+  };
+}
+
+async function understandImageWithLabels(embedding, onnxProvider) {
+  return understandWithLabels(
+    embedding,
+    onnxProvider,
+    IMAGE_UNDERSTANDING_LABELS,
+    "image",
+    (label) => `一张关于${label}的图片`,
+    "图片可能包含",
+  );
+}
+
+async function understandClipWithLabels(embedding, onnxProvider) {
+  return understandWithLabels(
+    embedding,
+    onnxProvider,
+    CLIP_UNDERSTANDING_LABELS,
+    "clip",
+    (label) => `一段关于${label}的短视频画面`,
+    "视频可能包含",
+  );
+}
+
 function candidateCard(item, id) {
   const indexedClip = item.indexedClip ?? {};
   return {
@@ -116,6 +287,8 @@ function candidateCard(item, id) {
     name: indexedClip.name || path.basename(item.clip),
     directory: indexedClip.dirName || path.basename(path.dirname(item.clip)),
     text: indexedClip.text || clipText(item.clip),
+    tags: Array.isArray(indexedClip.tags) ? indexedClip.tags.slice(0, 8) : [],
+    caption: indexedClip.caption || "",
     durationSec: Number((indexedClip.durationSec || item.durationSec || 0).toFixed?.(1) ?? 0),
     localScore: Number(item.score.toFixed(3)),
     lexicalScore: Number(item.lexicalScore.toFixed(3)),
@@ -210,8 +383,16 @@ async function buildClipEntry(clip, fingerprint, dir, index, onnxProvider) {
       // Some browser-supported files still fail frame extraction; keep the clip indexed.
     }
   }
-  const text = clipText(clip);
   const embedding = onnxProvider?.available ? await onnxProvider.embedImages(thumbs) : null;
+  const understanding = await understandClipWithLabels(embedding, onnxProvider);
+  const filenameTags = inferFilenameTags(clip);
+  const tags = Array.from(new Set([...filenameTags, ...understanding.tags]));
+  const caption = tags.length ? `视频可能包含：${tags.join("、")}` : understanding.caption;
+  const text = [
+    clipText(clip),
+    caption,
+    ...tags,
+  ].filter(Boolean).join(" ");
   return {
     ...fingerprint,
     name: path.basename(clip),
@@ -221,12 +402,29 @@ async function buildClipEntry(clip, fingerprint, dir, index, onnxProvider) {
     tokens: tokenize(text),
     thumbs,
     embedding,
+    tags,
+    tagScores: understanding.tagScores,
+    caption,
   };
 }
 
-async function buildImageEntry(image, fingerprint, index, onnxProvider) {
-  const text = imageText(image);
+async function buildImageEntry(image, fingerprint, index, onnxProvider, annotation = null) {
   const embedding = onnxProvider?.available ? await onnxProvider.embedImages([image]) : null;
+  const understanding = await understandImageWithLabels(embedding, onnxProvider);
+  const filenameTags = inferFilenameTags(image);
+  const manualKeywords = splitAnnotationKeywords(annotation?.keywords);
+  const manualText = annotationText(annotation);
+  const tags = Array.from(new Set([...manualKeywords, ...filenameTags, ...understanding.tags]));
+  const caption = annotation?.description
+    ? `人工描述：${annotation.description}`
+    : tags.length ? `图片可能包含：${tags.join("、")}` : understanding.caption;
+  const text = [
+    manualText,
+    manualText,
+    imageText(image),
+    caption,
+    ...tags,
+  ].filter(Boolean).join(" ");
   return {
     ...fingerprint,
     name: path.basename(image),
@@ -234,6 +432,15 @@ async function buildImageEntry(image, fingerprint, index, onnxProvider) {
     text,
     tokens: tokenize(text),
     embedding,
+    tags,
+    tagScores: understanding.tagScores,
+    caption,
+    annotation: annotation ? {
+      keywords: annotation.keywords || "",
+      description: annotation.description || "",
+      usageHint: annotation.usageHint || annotation.usage_hint || "",
+      updatedAt: annotation.updatedAt || annotation.updated_at || "",
+    } : null,
     durationSec: 0,
     thumbs: [image],
     index,
@@ -244,9 +451,9 @@ export async function buildSmartMaterialIndex(clips, options = {}) {
   const cacheDir = options.cacheDir || path.join(process.cwd(), "_cache", "smart-index");
   const onnxProvider = await loadSmartOnnxProvider({ root: options.root || process.cwd() });
   if (onnxProvider.available) {
-    options.onEvent?.({ type: "log", msg: `ONNX匹配：已加载 ${onnxProvider.engine}` });
+    options.onEvent?.({ type: "log", msg: "智能匹配：已启用本地画面分析" });
   } else {
-    options.onEvent?.({ type: "log", msg: `ONNX匹配：${onnxProvider.reason}，使用本地索引匹配` });
+    options.onEvent?.({ type: "log", msg: "智能匹配：使用文件名和目录信息分析素材" });
   }
   const fingerprints = [];
   for (const clip of clips) {
@@ -263,7 +470,7 @@ export async function buildSmartMaterialIndex(clips, options = {}) {
   if (existsSync(indexPath)) {
     try {
       const cached = JSON.parse(await readFile(indexPath, "utf8"));
-      if (cached.version === 3 && Array.isArray(cached.clips) && cached.clips.length === fingerprints.length) {
+      if (cached.version === 4 && Array.isArray(cached.clips) && cached.clips.length === fingerprints.length) {
         return { ...cached, reused: true, path: indexPath, onnxProvider };
       }
     } catch {
@@ -271,6 +478,9 @@ export async function buildSmartMaterialIndex(clips, options = {}) {
     }
   }
   options.onEvent?.({ type: "log", msg: `智能索引：开始分析 ${fingerprints.length} 个素材…` });
+  if (onnxProvider.available) {
+    options.onEvent?.({ type: "log", msg: "素材画像：正在生成场景和画面标签" });
+  }
   const entries = [];
   for (let i = 0; i < fingerprints.length; i++) {
     const item = fingerprints[i];
@@ -280,8 +490,8 @@ export async function buildSmartMaterialIndex(clips, options = {}) {
     entries.push(await buildClipEntry(item.path, item, dir, i, onnxProvider.available ? onnxProvider : null));
   }
   const index = {
-    version: 3,
-    engine: onnxProvider.available ? onnxProvider.engine : "local-frame-index-v2",
+    version: 4,
+    engine: onnxProvider.available ? `${onnxProvider.engine}+clip-tags-v1` : "local-frame-index-v3",
     createdAt: new Date().toISOString(),
     key,
     onnx: {
@@ -312,14 +522,20 @@ export async function buildSmartImageIndex(images, options = {}) {
       // Deleted or unreadable files are ignored.
     }
   }
-  const key = indexKey(fingerprints, onnxProvider.available ? `image-${onnxProvider.modelKey}` : "image-local");
+  const annotationKey = fingerprints
+    .map((item) => {
+      const annotation = annotationForPath(options.annotations, item.path);
+      return annotation ? `${item.path}:${annotation.updatedAt || annotation.updated_at || ""}:${annotationText(annotation)}` : item.path;
+    })
+    .join("\n");
+  const key = indexKey(fingerprints, `${onnxProvider.available ? `image-${onnxProvider.modelKey}` : "image-local"}\n${annotationKey}`);
   const dir = path.join(cacheDir, key);
   const indexPath = path.join(dir, "index.json");
   await mkdir(dir, { recursive: true });
   if (existsSync(indexPath)) {
     try {
       const cached = JSON.parse(await readFile(indexPath, "utf8"));
-      if (cached.version === 1 && Array.isArray(cached.images) && cached.images.length === fingerprints.length) {
+      if (cached.version === 4 && Array.isArray(cached.images) && cached.images.length === fingerprints.length) {
         return { ...cached, reused: true, path: indexPath, onnxProvider };
       }
     } catch {
@@ -327,16 +543,25 @@ export async function buildSmartImageIndex(images, options = {}) {
     }
   }
   options.onEvent?.({ type: "log", msg: `图片索引：开始分析 ${fingerprints.length} 张图片…` });
+  if (onnxProvider.available) {
+    options.onEvent?.({ type: "log", msg: "图片理解：正在生成本地语义标签" });
+  }
   const entries = [];
   for (let i = 0; i < fingerprints.length; i++) {
     if (i === 0 || (i + 1) % 20 === 0 || i === fingerprints.length - 1) {
       options.onEvent?.({ type: "log", msg: `图片索引：${i + 1}/${fingerprints.length}` });
     }
-    entries.push(await buildImageEntry(fingerprints[i].path, fingerprints[i], i, onnxProvider.available ? onnxProvider : null));
+    entries.push(await buildImageEntry(
+      fingerprints[i].path,
+      fingerprints[i],
+      i,
+      onnxProvider.available ? onnxProvider : null,
+      annotationForPath(options.annotations, fingerprints[i].path),
+    ));
   }
   const index = {
-    version: 1,
-    engine: onnxProvider.available ? onnxProvider.engine : "local-image-name-v1",
+    version: 4,
+    engine: onnxProvider.available ? `${onnxProvider.engine}+zero-shot-tags-v1` : "local-image-semantic-v1",
     createdAt: new Date().toISOString(),
     key,
     onnx: {
@@ -366,13 +591,16 @@ export async function rankClipsForPrompt(clips, prompt, options = {}) {
       const vectorScore = textEmbedding && indexedClip?.embedding
         ? Math.max(0, cosineSimilarity(textEmbedding, indexedClip.embedding))
         : 0;
-      const score = vectorScore > 0 ? vectorScore : lexicalScore;
+      const semanticScore = Math.min(1, lexicalScore);
+      const score = vectorScore > 0
+        ? Math.min(1, vectorScore * 0.82 + semanticScore * 0.18)
+        : semanticScore;
       return {
         clip,
         index,
         indexedClip,
         score,
-        reason: vectorScore > 0 ? "onnx-vector" : score > 0 ? (indexedClip ? "smart-index" : "filename") : "fallback",
+        reason: vectorScore > 0 ? (semanticScore > 0 ? "vector-semantic" : "onnx-vector") : score > 0 ? (indexedClip ? "smart-index" : "filename") : "fallback",
         lexicalScore,
         vectorScore,
         thumbs: indexedClip?.thumbs ?? [],
@@ -418,6 +646,8 @@ export async function rankClipsForPrompt(clips, prompt, options = {}) {
       rerankReason: item.rerankReason || undefined,
       thumbs: item.thumbs,
       durationSec: item.durationSec,
+      tags: item.indexedClip?.tags || [],
+      caption: item.indexedClip?.caption || "",
     })),
     engine: reranked ? `${baseEngine}+llm-rerank` : baseEngine,
     reranked,
@@ -492,10 +722,214 @@ export async function rankImagesForPrompt(images, prompt, options = {}) {
       rerankScore: item.rerankScore === undefined || item.rerankScore === null ? undefined : Number(item.rerankScore.toFixed(3)),
       rerankReason: item.rerankReason || undefined,
       thumbs: item.thumbs,
+      tags: item.indexedClip?.tags || [],
+      caption: item.indexedClip?.caption || "",
     })),
     engine: reranked ? `${baseEngine}+llm-rerank` : baseEngine,
     reranked,
     rerankTopK,
     indexPath: options.index?.path,
+  };
+}
+
+function distributeSlots(scenes, targetCount) {
+  const count = Math.max(1, Math.floor(Number(targetCount) || 1));
+  const size = Math.max(1, scenes.length);
+  const slots = Array(size).fill(0);
+  for (let i = 0; i < Math.min(size, count); i++) slots[i] = 1;
+  let remaining = Math.max(0, count - slots.reduce((sum, value) => sum + value, 0));
+  const weighted = scenes.map((scene, index) => ({
+    index,
+    weight: Math.max(1, Array.from(String(scene || "")).length),
+  })).sort((a, b) => b.weight - a.weight || a.index - b.index);
+  let cursor = 0;
+  while (remaining > 0) {
+    slots[weighted[cursor % weighted.length].index] += 1;
+    cursor += 1;
+    remaining -= 1;
+  }
+  return slots;
+}
+
+function chooseFromRanked(rankedImages, used, allowRepeat, globalOrder = new Map()) {
+  const ranked = rankedImages
+    .filter(Boolean)
+    .map((image, index) => ({ image, index, globalIndex: globalOrder.has(image) ? globalOrder.get(image) : 999999 }))
+    .sort((a, b) => (a.index + a.globalIndex * 0.04) - (b.index + b.globalIndex * 0.04));
+  const fresh = ranked.find((item) => !used.has(item.image));
+  if (fresh) {
+    used.add(fresh.image);
+    return fresh.image;
+  }
+  if (allowRepeat && ranked.length) return ranked[0].image;
+  return "";
+}
+
+function indexedClipMap(index) {
+  return new Map((index?.clips ?? []).map((item) => [item.path, item]));
+}
+
+function chooseClipFromRanked(rankedClips, used, recent, allowRepeat, indexed, globalOrder = new Map()) {
+  const candidates = rankedClips
+    .filter(Boolean)
+    .map((clip, index) => {
+      const info = indexed.get(clip);
+      const last = recent[recent.length - 1];
+      let penalty = 0;
+      if (used.has(clip)) penalty += allowRepeat ? 18 : 999999;
+      if (last && path.dirname(last) === path.dirname(clip)) penalty += 2.5;
+      if (last && path.basename(last) === path.basename(clip)) penalty += 999999;
+      const embedding = info?.embedding;
+      if (embedding && recent.length) {
+        const similarRecent = recent
+          .map((item) => indexed.get(item)?.embedding)
+          .filter(Boolean)
+          .map((itemEmbedding) => cosineSimilarity(embedding, itemEmbedding))
+          .sort((a, b) => b - a)[0] ?? 0;
+        if (similarRecent > 0.94) penalty += 5;
+        else if (similarRecent > 0.88) penalty += 2;
+      }
+      const globalIndex = globalOrder.has(clip) ? globalOrder.get(clip) : 999999;
+      return {
+        clip,
+        score: index + globalIndex * 0.04 + penalty,
+      };
+    })
+    .filter((item) => item.score < 999999)
+    .sort((a, b) => a.score - b.score);
+  const picked = candidates[0]?.clip || "";
+  if (picked) {
+    used.add(picked);
+    recent.push(picked);
+    if (recent.length > 4) recent.shift();
+  }
+  return picked;
+}
+
+export async function rankClipsForScenes(clips, scenes, targetCount, options = {}) {
+  const cleanScenes = (Array.isArray(scenes) ? scenes : [])
+    .map((scene) => String(scene || "").trim())
+    .filter(Boolean);
+  const prompts = cleanScenes.length ? cleanScenes : [String(options.prompt || "").trim()].filter(Boolean);
+  if (!prompts.length) {
+    return await rankClipsForPrompt(clips, "", options);
+  }
+
+  let globalRank = null;
+  if (options.llm?.apiKey) {
+    globalRank = await rankClipsForPrompt(clips, prompts.join("\n"), options);
+  }
+  const indexed = indexedClipMap(options.index);
+  const globalOrder = new Map((globalRank?.clips ?? []).map((clip, index) => [clip, index]));
+  const slots = distributeSlots(prompts, Math.max(prompts.length, Math.floor(Number(targetCount) || prompts.length)));
+  const used = new Set();
+  const recent = [];
+  const selected = [];
+  const sceneMatches = [];
+
+  for (let i = 0; i < prompts.length; i++) {
+    const scene = prompts[i];
+    const ranked = await rankClipsForPrompt(clips, scene, { ...options, llm: null });
+    const selectedForScene = [];
+    for (let slot = 0; slot < slots[i]; slot++) {
+      const clip = chooseClipFromRanked(ranked.clips, used, recent, options.allowRepeat !== false, indexed, globalOrder);
+      if (clip) {
+        selected.push(clip);
+        selectedForScene.push(clip);
+      }
+    }
+    sceneMatches.push({
+      scene,
+      clips: selectedForScene,
+      matches: ranked.matches,
+      engine: ranked.engine,
+    });
+  }
+
+  const fallback = globalRank ?? await rankClipsForPrompt(clips, prompts.join("\n"), { ...options, llm: null });
+  for (const clip of fallback.clips) {
+    if (options.allowRepeat === false && used.has(clip)) continue;
+    if (!selected.includes(clip)) selected.push(clip);
+  }
+
+  const matchRows = sceneMatches.flatMap((group) => {
+    const chosenNames = new Set(group.clips.map((clip) => path.basename(clip)));
+    return group.matches
+      .filter((item) => chosenNames.has(item.name))
+      .map((item) => ({ ...item, scene: group.scene }));
+  });
+  const fallbackMatches = (globalRank?.matches ?? fallback.matches).map((item) => ({ ...item, scene: prompts[0] || "" }));
+  return {
+    clips: selected.length ? selected : fallback.clips,
+    matches: (matchRows.length ? matchRows : fallbackMatches).slice(0, Math.min(12, clips.length)),
+    engine: `${globalRank?.engine || fallback.engine}+scene-diversity-v1`,
+    reranked: Boolean(globalRank?.reranked),
+    rerankTopK: globalRank?.rerankTopK || 0,
+    indexPath: options.index?.path,
+    scenes: sceneMatches,
+  };
+}
+
+export async function rankImagesForScenes(images, scenes, targetCount, options = {}) {
+  const cleanScenes = (Array.isArray(scenes) ? scenes : [])
+    .map((scene) => String(scene || "").trim())
+    .filter(Boolean);
+  const prompts = cleanScenes.length ? cleanScenes : [String(options.prompt || "").trim()].filter(Boolean);
+  if (!prompts.length) {
+    return await rankImagesForPrompt(images, "", options);
+  }
+
+  let globalRank = null;
+  if (options.llm?.apiKey) {
+    globalRank = await rankImagesForPrompt(images, prompts.join("\n"), options);
+  }
+  const globalOrder = new Map((globalRank?.images ?? []).map((image, index) => [image, index]));
+  const slots = distributeSlots(prompts, targetCount);
+  const used = new Set();
+  const selected = [];
+  const sceneMatches = [];
+
+  for (let i = 0; i < prompts.length; i++) {
+    const scene = prompts[i];
+    const ranked = await rankImagesForPrompt(images, scene, { ...options, llm: null });
+    const selectedForScene = [];
+    for (let slot = 0; slot < slots[i]; slot++) {
+      const image = chooseFromRanked(ranked.images, used, options.allowRepeat !== false, globalOrder);
+      if (image) {
+        selected.push(image);
+        selectedForScene.push(image);
+      }
+    }
+    sceneMatches.push({
+      scene,
+      images: selectedForScene,
+      matches: ranked.matches,
+      engine: ranked.engine,
+    });
+  }
+
+  const fallback = globalRank ?? await rankImagesForPrompt(images, prompts.join("\n"), { ...options, llm: null });
+  for (const image of fallback.images) {
+    if (selected.length >= Math.max(1, Math.floor(Number(targetCount) || 1))) break;
+    if (options.allowRepeat === false && used.has(image)) continue;
+    selected.push(image);
+    used.add(image);
+  }
+
+  const matchRows = sceneMatches.flatMap((group) => {
+    const chosen = new Set(group.images);
+    return group.matches
+      .filter((item) => chosen.has(images.find((image) => path.basename(image) === item.name) || ""))
+      .map((item) => ({ ...item, scene: group.scene }));
+  });
+  const fallbackMatches = (globalRank?.matches ?? fallback.matches).map((item) => ({ ...item, scene: prompts[0] || "" }));
+  return {
+    images: selected.length ? selected : fallback.images,
+    matches: (matchRows.length ? matchRows : fallbackMatches).slice(0, Math.min(12, images.length)),
+    engine: `${globalRank?.engine || fallback.engine}+scene-plan-v1`,
+    reranked: Boolean(globalRank?.reranked),
+    rerankTopK: globalRank?.rerankTopK || 0,
+    indexPath: options.index?.path,
+    scenes: sceneMatches,
   };
 }

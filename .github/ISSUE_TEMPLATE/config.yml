@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全问题
+    url: https://github.com/262146150/autocut/security
+    about: 请勿公开提交密钥、个人数据或可直接利用的漏洞细节。

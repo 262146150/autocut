@@ -27,7 +27,9 @@ function imageSceneFilter({ w, h, fps, durationSec, fillMode, motionMode, fade }
     : `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
   const progress = `min(max(t/${duration.toFixed(3)}\\,0)\\,1)`;
   let motion = "";
-  if (motionMode === "zoomOut") {
+  if (motionMode === "none") {
+    motion = "";
+  } else if (motionMode === "zoomOut") {
     motion = `scale=w='trunc(iw*(1.08-0.08*${progress})/2)*2':h='trunc(ih*(1.08-0.08*${progress})/2)*2':eval=frame,crop=${w}:${h}:x='(iw-ow)/2':y='(ih-oh)/2'`;
   } else if (motionMode === "drift") {
     motion = `scale=${Math.ceil(w * 1.1 / 2) * 2}:${Math.ceil(h * 1.1 / 2) * 2},crop=${w}:${h}:x='(iw-ow)*(0.5+0.5*sin(t*0.55))':y='(ih-oh)*(0.5+0.5*cos(t*0.41))'`;
@@ -38,7 +40,7 @@ function imageSceneFilter({ w, h, fps, durationSec, fillMode, motionMode, fade }
   const fadeParts = fadeDur > 0
     ? [`fade=t=in:st=0:d=${fadeDur.toFixed(2)}`, `fade=t=out:st=${Math.max(0, duration - fadeDur).toFixed(2)}:d=${fadeDur.toFixed(2)}`]
     : [];
-  return [base, motion, ...fadeParts, `fps=${fps}`, "setsar=1", "format=yuv420p"].join(",");
+  return [base, motion, ...fadeParts, `fps=${fps}`, "setsar=1", "format=yuv420p"].filter(Boolean).join(",");
 }
 
 async function makeImageSegment(image, output, options) {
@@ -155,8 +157,8 @@ export async function runImageVideo({
   durationSec = 0,
   sceneDurationSec = 3,
   fillMode = "blur",
-  motionMode = "zoomIn",
-  transition = "fade",
+  motionMode = "none",
+  transition = "none",
   finalSubtitle = null,
   audioPath = "",
   bgmEnabled = false,

@@ -2,7 +2,7 @@ export type AspectRatio = "9:16" | "16:9";
 export type AspectRatioMode = AspectRatio | "auto";
 export type FillMode = "blur" | "black";
 export type Resolution = "1080p" | "720p";
-export type MotionMode = "zoomIn" | "zoomOut" | "drift";
+export type MotionMode = "none" | "zoomIn" | "zoomOut" | "drift";
 export type TransitionMode = "fade" | "none";
 export type ExportQuality = "standard" | "high" | "best";
 

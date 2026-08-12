@@ -11,7 +11,7 @@ import Database from "better-sqlite3";
 import { runMix, makeTestClips, collectClips, probeDuration, probeVideoSize, hasAudioStream, rm } from "../poc/pipeline.mjs";
 import { rewriteCopy, testArkConnection } from "./llm.mjs";
 import { synthesizeSpeech } from "./tts.mjs";
-import { buildSmartImageIndex, buildSmartMaterialIndex, rankClipsForPrompt, rankImagesForPrompt } from "./smart_match.mjs";
+import { buildSmartImageIndex, buildSmartMaterialIndex, rankClipsForScenes, rankImagesForScenes } from "./smart_match.mjs";
 import { buildSegmentLibrary } from "./segmenter.mjs";
 import { runHighlightClips } from "./highlight_clip.mjs";
 import { audioDuration, normalizeSceneDuration, runImageVideo } from "./image_video.mjs";
@@ -381,6 +381,16 @@ function getMaterialDb() {
       last_error TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_client_event_queue_created ON client_event_queue(created_at);
+    CREATE TABLE IF NOT EXISTS image_annotations (
+      user_id INTEGER NOT NULL DEFAULT 1,
+      path TEXT NOT NULL,
+      keywords TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      usage_hint TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, path)
+    );
+    CREATE INDEX IF NOT EXISTS idx_image_annotations_path ON image_annotations(path);
   `);
   for (const sql of [
     "ALTER TABLE auth_client ADD COLUMN license_status TEXT",
@@ -886,6 +896,68 @@ function safeErrorMessage(error, secrets = []) {
   return message;
 }
 
+function imageAnnotationRow(row) {
+  if (!row) return null;
+  return {
+    path: row.path,
+    keywords: row.keywords || "",
+    description: row.description || "",
+    usageHint: row.usage_hint || "",
+    updatedAt: row.updated_at || "",
+  };
+}
+
+function normalizeImageAnnotationPayload(payload = {}) {
+  const rawPath = String(payload.path || "").trim();
+  return {
+    path: rawPath ? path.resolve(rawPath) : "",
+    keywords: String(payload.keywords || "").trim(),
+    description: String(payload.description || "").trim(),
+    usageHint: String(payload.usageHint || payload.usage_hint || "").trim(),
+  };
+}
+
+function imageAnnotationsByPath(paths = []) {
+  const cleanPaths = Array.from(new Set(paths.map((item) => path.resolve(String(item || "").trim())).filter(Boolean)));
+  if (!cleanPaths.length) return new Map();
+  const db = getMaterialDb();
+  const select = db.prepare(`
+    SELECT path, keywords, description, usage_hint, updated_at
+    FROM image_annotations
+    WHERE user_id = ? AND path = ?
+  `);
+  const annotations = new Map();
+  for (const itemPath of cleanPaths) {
+    const row = select.get(DEFAULT_USER_ID, itemPath);
+    if (row) annotations.set(itemPath, imageAnnotationRow(row));
+  }
+  return annotations;
+}
+
+function saveImageAnnotation(payload = {}) {
+  const item = normalizeImageAnnotationPayload(payload);
+  if (!item.path) throw new Error("图片路径不能为空");
+  if (!existsSync(item.path) || !isImageMaterialFile(item.path)) throw new Error("图片文件不存在或格式不支持");
+  const now = new Date().toISOString();
+  const db = getMaterialDb();
+  db.prepare(`
+    INSERT INTO image_annotations (user_id, path, keywords, description, usage_hint, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, path) DO UPDATE SET
+      keywords = excluded.keywords,
+      description = excluded.description,
+      usage_hint = excluded.usage_hint,
+      updated_at = excluded.updated_at
+  `).run(DEFAULT_USER_ID, item.path, item.keywords, item.description, item.usageHint, now);
+  return {
+    path: item.path,
+    keywords: item.keywords,
+    description: item.description,
+    usageHint: item.usageHint,
+    updatedAt: now,
+  };
+}
+
 function materialSourceRow(row) {
   return {
     path: row.path,
@@ -1161,8 +1233,15 @@ async function buildExportEntries(dir) {
   return entries;
 }
 
+function subtitleDisplayText(text) {
+  return String(text || "")
+    .replace(/[，。！？、；：“”‘’（）《》【】…,.!?;:"'()[\]{}<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function splitCopyText(text) {
-  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  const normalized = subtitleDisplayText(text);
   if (!normalized) return [];
   const sentenceParts = normalized.match(/[^。！？!?；;]+[。！？!?；;]?/g) ?? [normalized];
   const chunks = [];
@@ -1197,20 +1276,24 @@ function copySubtitleFrames(text, duration) {
 }
 
 function copySubtitlePayload(text, duration, style) {
+  const displayText = subtitleDisplayText(text);
   const fallback = {
     x: 50,
     y: 86,
     fontSize: 56,
     opacity: 1,
     outlineWidth: 0,
+    maxWidthRatio: 0.82,
     color: "#ffffff",
     outlineColor: "#000000",
   };
   return {
     ...fallback,
     ...(style ?? {}),
-    text,
-    frames: copySubtitleFrames(text, duration),
+    text: displayText,
+    stripPunctuation: true,
+    maxWidthRatio: Number(style?.maxWidthRatio) || fallback.maxWidthRatio,
+    frames: copySubtitleFrames(displayText, duration),
   };
 }
 
@@ -1257,8 +1340,6 @@ async function apiImageVideo(req, res) {
     imageCount = 0,
     sceneDurationSec = 3,
     allowImageReuse = true,
-    motionMode = "zoomIn",
-    transition = "fade",
     subtitleEnabled = true,
     subtitleStyle = null,
     voiceEnabled = true,
@@ -1275,6 +1356,8 @@ async function apiImageVideo(req, res) {
     outputDir = "",
   } = await readBody(req);
   const [w, h] = String(canvas).split("x").map(Number);
+  const motionMode = "none";
+  const transition = "none";
   res.writeHead(200, { "content-type": "application/x-ndjson", "cache-control": "no-cache" });
   const send = (o) => res.write(JSON.stringify(o) + "\n");
   let taskId = "";
@@ -1337,6 +1420,7 @@ async function apiImageVideo(req, res) {
     send({ type: "start", total: totalOut, images: sourceCount });
     const imageIndex = await buildSmartImageIndex(images, {
       cacheDir: path.join(CACHE, "smart-image-index"),
+      annotations: imageAnnotationsByPath(images),
       onEvent: send,
     });
     send({
@@ -1404,17 +1488,18 @@ async function apiImageVideo(req, res) {
         duration = await probeDuration(tts.path);
       }
       if (!duration) duration = Math.max(4, scenes.length * normalizeSceneDuration(sceneDurationSec));
-      const match = await rankImagesForPrompt(images, promptText, {
-        index: imageIndex,
-        llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
-        rerankTopK: smartRerankTopK,
-        onEvent: send,
-      });
       const perVideoImages = Math.max(
         scenes.length,
         Math.floor(Number(imageCount) || Math.ceil(duration / normalizeSceneDuration(sceneDurationSec))),
         1,
       );
+      const match = await rankImagesForScenes(images, scenes.length ? scenes : [promptText], perVideoImages, {
+        index: imageIndex,
+        allowRepeat: allowImageReuse,
+        llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
+        rerankTopK: smartRerankTopK,
+        onEvent: send,
+      });
       const pickedImages = pickRankedImages(match.images, perVideoImages, allowImageReuse);
       send({
         type: "image_match",
@@ -1803,8 +1888,11 @@ async function apiMix(req, res) {
         } else {
           send({ type: "log", msg: `文案 ${copyIndex + 1} 未启用语音合成，按 ${duration.toFixed(1)} 秒生成…` });
         }
-        const smartMatch = smartMix ? await rankClipsForPrompt(clips, item.text, {
+        const copyScenes = splitCopyScenes(item.text);
+        const expectedClipCount = Math.max(copyScenes.length, Math.ceil(duration / 8));
+        const smartMatch = smartMix ? await rankClipsForScenes(clips, copyScenes, expectedClipCount, {
           index: smartIndex,
+          allowRepeat: allowMaterialReuse,
           llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
           rerankTopK: smartRerankTopK,
           onEvent: send,
@@ -1818,7 +1906,7 @@ async function apiMix(req, res) {
             engine: smartMatch.engine,
             matches: smartMatch.matches,
           });
-          send({ type: "log", msg: `AI匹配文案 ${copyIndex + 1}：${topMatches || smartMatch.engine}` });
+          send({ type: "log", msg: `AI匹配文案 ${copyIndex + 1}：按 ${copyScenes.length} 个分镜完成匹配${topMatches ? `，优先画面 ${topMatches}` : ""}` });
         }
         send({ type: "log", msg: `文案 ${copyIndex + 1} ${voiceEnabled ? "语音" : "估算"} ${duration.toFixed(1)} 秒，开始混剪…` });
         const results = await runMix({
@@ -1921,8 +2009,11 @@ async function apiMix(req, res) {
         const duration = await probeDuration(item.path);
         if (!duration) throw new Error(`音频 ${audioIndex + 1} 时长读取失败`);
         const matchPrompt = item.text || item.name || path.basename(item.path);
-        const smartMatch = smartMix ? await rankClipsForPrompt(clips, matchPrompt, {
+        const audioScenes = splitCopyScenes(matchPrompt);
+        const expectedClipCount = Math.max(audioScenes.length, Math.ceil(duration / 8));
+        const smartMatch = smartMix ? await rankClipsForScenes(clips, audioScenes, expectedClipCount, {
           index: smartIndex,
+          allowRepeat: allowMaterialReuse,
           llm: smartRerank ? { apiKey: arkSettings.apiKey, model: arkSettings.model } : null,
           rerankTopK: smartRerankTopK,
           onEvent: send,
@@ -1936,7 +2027,7 @@ async function apiMix(req, res) {
             engine: smartMatch.engine,
             matches: smartMatch.matches,
           });
-          send({ type: "log", msg: `AI匹配音频 ${audioIndex + 1}：${topMatches || smartMatch.engine}` });
+          send({ type: "log", msg: `AI匹配音频 ${audioIndex + 1}：按 ${audioScenes.length} 个分镜完成匹配${topMatches ? `，优先画面 ${topMatches}` : ""}` });
         }
         send({ type: "log", msg: `音频 ${audioIndex + 1}/${validAudioItems.length} ${duration.toFixed(1)} 秒，开始混剪…` });
         const results = await runMix({
@@ -2172,6 +2263,7 @@ async function inspectImageMaterials(inputs) {
   if (!inputs || !existsSync(inputs)) throw new Error("图片素材路径不存在");
   const images = await collectImages(inputs);
   if (!images.length) throw new Error("该路径没有图片素材");
+  const annotations = imageAnnotationsByPath(images);
   const items = [];
   let next = 0;
   const workerCount = Math.min(8, images.length);
@@ -2186,6 +2278,7 @@ async function inspectImageMaterials(inputs) {
         width: size?.width,
         height: size?.height,
         orientation: classifyVideoSize(size),
+        annotation: annotations.get(image) ?? null,
       });
     }
   }
@@ -2208,6 +2301,25 @@ async function apiImageMaterials(req, res) {
     res.end(JSON.stringify(payload));
   } catch (e) {
     res.end(JSON.stringify({ valid: false, msg: e.message, path: inputs || "", name: "", count: 0, images: [] }));
+  }
+}
+
+async function apiImageAnnotations(req, res) {
+  try {
+    const body = await readBody(req);
+    if (body.save) {
+      const item = saveImageAnnotation(body);
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+      res.end(JSON.stringify({ ok: true, item }));
+      return;
+    }
+    const paths = Array.isArray(body.paths) ? body.paths : body.path ? [body.path] : [];
+    const annotations = imageAnnotationsByPath(paths);
+    res.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ ok: true, items: Array.from(annotations.values()) }));
+  } catch (e) {
+    res.writeHead(400, { "content-type": "application/json; charset=utf-8", "cache-control": "no-cache" });
+    res.end(JSON.stringify({ ok: false, message: e.message }));
   }
 }
 
@@ -2633,6 +2745,7 @@ async function materialLibraryPayload() {
   const db = getMaterialDb();
   const sourceRows = db.prepare("SELECT * FROM material_sources ORDER BY added_at DESC, path ASC").all();
   const itemRows = db.prepare("SELECT * FROM material_items WHERE valid = 1 ORDER BY name ASC, path ASC").all();
+  const imageAnnotations = imageAnnotationsByPath(itemRows.filter((item) => item.kind === "image").map((item) => item.path));
   const itemsByRoot = new Map();
   for (const row of itemRows) {
     if (!itemsByRoot.has(row.root_path)) itemsByRoot.set(row.root_path, []);
@@ -2661,6 +2774,7 @@ async function materialLibraryPayload() {
       orientation: item.orientation ?? "unknown",
       hasAudio: item.has_audio === null ? undefined : Boolean(item.has_audio),
       valid: Boolean(item.valid),
+      annotation: item.kind === "image" ? imageAnnotations.get(item.path) ?? null : undefined,
     })) : [];
     return {
       path: row.path,
@@ -2890,6 +3004,7 @@ http
       if (req.method === "POST" && req.url === "/api/material-library") return await apiMaterialLibrary(req, res);
       if (req.method === "POST" && req.url === "/api/materials") return await apiMaterials(req, res);
       if (req.method === "POST" && req.url === "/api/image-materials") return await apiImageMaterials(req, res);
+      if (req.method === "POST" && req.url === "/api/image-annotations") return await apiImageAnnotations(req, res);
       if (req.method === "POST" && req.url === "/api/segments") return await apiSegments(req, res);
       if (req.method === "POST" && req.url === "/api/highlight-clips") return await apiHighlightClips(req, res);
       if (req.method === "POST" && req.url === "/api/image-video") return await apiImageVideo(req, res);

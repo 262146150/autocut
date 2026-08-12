@@ -1299,6 +1299,11 @@ select:focus-visible {
   font-weight: 600;
 }
 
+.clip-row.has-annotation span {
+  color: var(--mint);
+  font-weight: 900;
+}
+
 .clip-row span {
   color: var(--faint);
   font-size: 11px;
@@ -1565,11 +1570,12 @@ select:focus-visible {
 
 .smart-match-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr);
   align-items: center;
   gap: 6px;
   font-size: 12px;
   color: var(--muted);
+  min-width: 0;
 }
 
 .smart-match-item span {
@@ -1588,6 +1594,9 @@ select:focus-visible {
   color: var(--faint);
   font-style: normal;
   font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 中：预览 + 文案 */
@@ -4784,6 +4793,30 @@ input.inp {
   padding: 0;
 }
 
+.image-video-left .box-h {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.image-annotation-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 8px 4px 30px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.image-annotation-stat button {
+  border: none;
+  background: none;
+  color: var(--mint-d);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .image-source-card {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -4886,6 +4919,16 @@ input.inp {
   gap: 10px;
 }
 
+.image-input-actions {
+  margin-left: auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 .image-copy-input {
   width: 100%;
   min-height: 0;
@@ -4910,6 +4953,135 @@ input.inp {
 
 .image-copy-input.small {
   min-height: 150px;
+}
+
+.image-annotation-modal {
+  width: min(1080px, 94vw);
+  height: min(720px, 88vh);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 54px rgba(16, 24, 32, .2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.image-annotation-body {
+  min-height: 0;
+  flex: 1 1 0;
+  display: grid;
+  grid-template-columns: 260px minmax(280px, 1fr) 320px;
+  gap: 12px;
+  padding: 12px;
+  background: #f6f8f7;
+}
+
+.image-annotation-list {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.image-annotation-list button {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink2);
+  text-align: left;
+}
+
+.image-annotation-list button:hover,
+.image-annotation-list button.active {
+  border-color: rgba(31, 138, 112, .32);
+  background: var(--mint-bg);
+}
+
+.image-annotation-list span {
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.image-annotation-list b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.image-annotation-list em {
+  color: var(--mint-d);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.image-annotation-preview {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #101418;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.image-annotation-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.image-annotation-form {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.image-annotation-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.image-annotation-form label span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.image-annotation-form .image-copy-input.small {
+  min-height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.image-annotation-actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .image-audio-input {
@@ -4942,17 +5114,30 @@ input.inp {
   border-radius: 8px;
   background: #f8faf9;
   padding: 10px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
 }
 
-.image-match-row b {
+.image-match-row div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.image-match-row b,
+.image-match-row em {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.image-match-row em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
 }
 
 .image-match-row span {
