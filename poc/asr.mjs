@@ -123,7 +123,7 @@ export async function recognizeClipWithWhisper(input, options = {}) {
   const config = resolveWhisperConfig();
   if (!config.bin || !config.model) {
     throw new Error(
-      "自动识别字幕未配置 whisper.cpp：请设置 ECUT_WHISPER_BIN 和 ECUT_WHISPER_MODEL，或运行 docs/03-asr-setup.md 中的安装步骤"
+      "自动识别字幕未配置 whisper.cpp：请设置 ECUT_WHISPER_BIN 和 ECUT_WHISPER_MODEL"
     );
   }
 

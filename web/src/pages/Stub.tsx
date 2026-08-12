@@ -1,4 +1,4 @@
-// Stub.tsx — 占位模块（结构就位，逻辑待接 docs/01·02）
+// Stub.tsx — 尚未接入业务逻辑的模块占位页。
 import type { ModuleDef } from "../data/modules";
 import { Icon } from "../components/Icons";
 
@@ -15,7 +15,7 @@ export default function Stub({ mod }: { mod: ModuleDef }) {
         <div className="empty">
           <div className="big"><Icon name={mod.icon} size={40} /></div>
           <div className="t">{mod.name} · 结构已就位</div>
-          <div className="s">逻辑按 docs/01（滤镜配方）·02（数据模型）接入即可</div>
+          <div className="s">该模块尚未接入本地处理管线</div>
         </div>
       </div>
     </div>

@@ -74,7 +74,7 @@ pnpm models:transnet  # TransNetV2 场景检测
 pnpm models:vad       # sherpa-onnx VAD
 ```
 
-模型文件体积较大，已通过 `.gitignore` 排除。模型来源、许可证与配置说明见 [智能匹配文档](docs/04-smart-match-onnx.md) 和 [ASR 文档](docs/03-asr-setup.md)。
+模型文件体积较大，已通过 `.gitignore` 排除。下载脚本会在 `web/models/` 下生成对应的本地清单；使用前请同时确认模型来源和许可证符合你的使用场景。
 
 ## 项目结构
 
@@ -83,7 +83,6 @@ web/           React/TypeScript 工作台与本地 Node 服务
 poc/           可独立运行的 FFmpeg 核心管线验证
 app/           Tauri 2 / Rust 桌面交付壳
 auth-service/  可选授权服务与管理端
-docs/          架构、算法、接口与操作文档
 ```
 
 详细的 Web 开发说明见 [web/README.md](web/README.md)。
@@ -107,8 +106,6 @@ docs/          架构、算法、接口与操作文档
 3. 批量生产：长任务统一进度、日志、取消和导出管理。
 4. 开放实现：不依赖或分发第三方产品的专有二进制、证书和凭据。
 5. 隔离变化：平台发布和云服务放在独立适配层中。
-
-相关设计背景见 [AivoClaw 对比与整合分析](docs/09-aivoclaw-integration-analysis.md)。
 
 ## 参与贡献
 
