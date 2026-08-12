@@ -31,6 +31,8 @@ admin-dist/
 *.tsbuildinfo
 
 # Runtime outputs and caches
+_raw/
+docs/
 _run/
 **/_run/
 _cache/
